@@ -1,0 +1,2431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dorf Friends</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        #gameContainer {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 100vw;
+        }
+
+        #gameCanvas {
+            border: 3px solid #FFD700;
+            background: linear-gradient(180deg, #0f0f23, #16213e);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            width: calc(100vw - 26px);
+            height: 80vh;
+            max-height: none;
+            image-rendering: pixelated;
+        }
+
+        #rightPanel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        #title {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #FFD700;
+            text-shadow: 0 0 20px #FFD700;
+            animation: glow 2s ease-in-out infinite alternate;
+            padding: 0 10px;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #FFD700; }
+            to { text-shadow: 0 0 30px #FFD700, 0 0 40px #FFD700; }
+        }
+
+        #stats, #rocketProgress, #stabilityPanel {
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid #FFD700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+
+        #rocketProgress {
+            border-color: #FF6B6B;
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.2);
+        }
+
+        #stabilityPanel {
+            border-color: #FF4444;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+        }
+
+        .stat-item {
+            margin: 15px 0;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-value {
+            color: #FFD700;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .gold-value {
+            color: #FFD700;
+            text-shadow: 0 0 10px #FFD700;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 18px;
+            background: #333;
+            border-radius: 10px;
+            margin: 12px 0;
+            overflow: hidden;
+            border: 1px solid #555;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #FFD700, #FF6B6B, #4ECDC4);
+            transition: width 0.5s ease;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .rocket-part {
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #4ECDC4;
+            font-size: 14px;
+        }
+
+        .rocket-part.completed {
+            background: rgba(76, 205, 196, 0.2);
+            border-left-color: #4ECDC4;
+        }
+
+        .rocket-part.building {
+            background: rgba(255, 215, 0, 0.2);
+            border-left-color: #FFD700;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .stability-meter {
+            width: 100%;
+            height: 24px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+
+        .stability-bar {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .stability-high { background: linear-gradient(90deg, #4CAF50, #8BC34A); }
+        .stability-medium { background: linear-gradient(90deg, #FF9800, #FFC107); }
+        .stability-low { background: linear-gradient(90deg, #FF5722, #F44336); }
+        .stability-critical { background: linear-gradient(90deg, #B71C1C, #D32F2F); animation: shake 0.5s infinite; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+
+        .motion-status {
+            margin-top: 15px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.1);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .motion-status.active {
+            background: rgba(76, 205, 196, 0.2);
+            border: 1px solid #4ECDC4;
+        }
+
+        .motion-status.inactive {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #FF6B6B;
+        }
+
+        .stability-tip {
+            font-size: 13px;
+            color: #888;
+            line-height: 1.4;
+            margin-top: 12px;
+            text-align: center;
+            padding: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+        }
+
+        #log {
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            height: 120px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+        }
+
+        .log-entry.important {
+            color: #FFD700;
+            opacity: 1;
+            font-weight: bold;
+        }
+
+        .log-entry.disaster {
+            color: #FF4444;
+            font-weight: bold;
+            text-shadow: 0 0 5px #FF4444;
+        }
+
+        .log-entry.success {
+            color: #4CAF50;
+            font-weight: bold;
+            text-shadow: 0 0 3px #4CAF50;
+        }
+
+        .log-entry.spam-counter {
+            background: rgba(255, 215, 0, 0.2);
+            border-left: 3px solid #FFD700;
+            padding-left: 8px;
+            margin-left: -8px;
+            transform: scale(1.02);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 5px; }
+            #title { font-size: 20px; }
+            .stat-item { font-size: 15px; }
+            .stat-value { font-size: 17px; }
+            #gameCanvas { width: calc(100vw - 16px); height: 75vh; }
+        }
+    </style>
+</head>
+<body>
+    <div id="title">🏰 Medieval Dwarf Colony - Complete Edition! 🏰</div>
+    
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="700" height="900"></canvas>
+        
+        <div id="rightPanel">
+            <div id="stats">
+                <div class="panel-title" style="color: #FFD700;">
+                    ⚡ Colony Resources ⚡
+                </div>
+                
+                <div class="stat-item">
+                    <span>🥇 Forbidden Gold:</span>
+                    <span class="stat-value gold-value" id="goldCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>👤 Dwarfs:</span>
+                    <span class="stat-value" id="dwarfsCount">3</span>
+                </div>
+                <div class="stat-item">
+                    <span>🍞 Avg Hunger:</span>
+                    <span class="stat-value" id="avgHunger">100</span>
+                </div>
+                <div class="stat-item">
+                    <span>💧 Avg Thirst:</span>
+                    <span class="stat-value" id="avgThirst">100</span>
+                </div>
+                <div class="stat-item">
+                    <span>😴 Avg Rest:</span>
+                    <span class="stat-value" id="avgRest">80</span>
+                </div>
+                <div class="stat-item">
+                    <span>😊 Avg Joy:</span>
+                    <span class="stat-value" id="avgJoy">70</span>
+                </div>
+                <div class="stat-item">
+                    <span>☕ Avg Coffee:</span>
+                    <span class="stat-value" id="avgCoffee">60</span>
+                </div>
+                <div class="stat-item">
+                    <span>🧼 Avg Clean:</span>
+                    <span class="stat-value" id="avgClean">80</span>
+                </div>
+                <div class="stat-item">
+                    <span>🏠 Amenity Buildings:</span>
+                    <span class="stat-value" id="machinesCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>🏢 City Buildings:</span>
+                    <span class="stat-value" id="buildingsCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>⚡ Gold/sec:</span>
+                    <span class="stat-value" id="goldPerSec">1.0</span>
+                </div>
+            </div>
+            
+            <div id="stabilityPanel">
+                <div class="panel-title" style="color: #FF4444;">
+                    ⚠️ Colony Stability ⚠️
+                </div>
+                
+                <div class="stability-meter">
+                    <div class="stability-bar stability-high" id="stabilityBar" style="width: 100%"></div>
+                </div>
+                <div style="text-align: center; font-size: 14px; color: #aaa;" id="stabilityText">
+                    Stable
+                </div>
+                
+                <div id="motionStatus" class="motion-status inactive">
+                    📱 Initializing motion detection...
+                </div>
+                
+                <div class="stability-tip">
+                    💡 Keep your device steady to maintain colony stability!<br>
+                    Movement will damage your colony and destroy buildings.
+                </div>
+            </div>
+            
+            <div id="rocketProgress">
+                <div class="panel-title" style="color: #FF6B6B;">
+                    🚀 Rocket Progress 🚀
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar" id="overallProgress" style="width: 0%"></div>
+                </div>
+                <div style="text-align: center; font-size: 14px; color: #aaa;" id="progressText">
+                    Planning phase...
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <div class="rocket-part" id="engine">🔥 Engine: Not started</div>
+                    <div class="rocket-part" id="fuel">⛽ Fuel Tank: Not started</div>
+                    <div class="rocket-part" id="hull">🛡️ Hull: Not started</div>
+                    <div class="rocket-part" id="navigation">📡 Navigation: Not started</div>
+                    <div class="rocket-part" id="launchpad">🚿 Launch Pad: Not started</div>
+                </div>
+            </div>
+            
+            <div id="log">
+                <div style="color: #4ECDC4; margin-bottom: 10px; font-size: 16px; font-weight: bold;">📜 Colony Log:</div>
+                <div class="log-entry">🎨 MEDIEVAL SPRITES + COMPLEX AI!</div>
+                <div class="log-entry important">✅ Beautiful pixel art + sophisticated behaviors!</div>
+                <div class="log-entry">🏰 Medieval buildings, characters & advanced AI</div>
+                <div class="log-entry">⚔️ Fantasy-themed with complex personality system</div>
+                <div class="log-entry important">⚠️ Keep device steady for optimal stability!</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Medieval Dwarf Colony Complete Edition starting...');
+        
+        // Sprite System - Load the tileset
+        let spriteSheet = null;
+        let spriteSheetLoaded = false;
+        
+        // Tileset configuration
+        const TILESET_CONFIG = {
+            columns: 20,
+            tileWidth: 12,
+            tileHeight: 12,
+            imageWidth: 261,
+            imageHeight: 131,
+            tileCount: 200
+        };
+        
+        // Sprite mappings for game entities
+        const SPRITE_MAP = {
+            // Buildings
+            house: 4,
+            inn: 5,
+            church: 10,
+            tower: 6,
+            castle: 7,
+            city: 9,
+            windmill: 198,
+            
+            // Characters
+            male_fighter: 21,
+            female_fighter: 20,
+            male_mage: 23,
+            female_mage: 22,
+            male_archer: 25,
+            female_archer: 24,
+            
+            // Items and resources
+            gold_chest: 162,
+            water_well: 187,
+            food_source: 196,
+            
+            // Special buildings
+            spa: 184,
+            coffee_shop: 183,
+            library: 153,
+            gym: 185,
+            museum: 180,
+            
+            // Negative buildings
+            negative_building: 179
+        };
+        
+        // Create and load the sprite sheet
+        function loadSpriteSheet() {
+            spriteSheet = new Image();
+            spriteSheet.onload = function() {
+                spriteSheetLoaded = true;
+                console.log('Sprite sheet loaded successfully!');
+                addLog('🎨 Medieval sprites loaded!', true, 'success');
+            };
+            spriteSheet.onerror = function() {
+                console.error('Failed to load sprite sheet');
+                addLog('❌ Failed to load sprites - using fallback graphics', true, 'disaster');
+                createFallbackSpriteSheet();
+            };
+            
+            spriteSheet.crossOrigin = 'anonymous';
+            spriteSheet.src = 'https://raw.githubusercontent.com/JakeSeegers/DorfFriend/JakeSeegers-patch-2/colored.png';
+        }
+        
+        function createFallbackSpriteSheet() {
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = 261;
+            fallbackCanvas.height = 131;
+            const fallbackCtx = fallbackCanvas.getContext('2d');
+            
+            const colors = [
+                '#8B4513', '#FF6347', '#32CD32', '#4682B4', '#FFD700',
+                '#FF69B4', '#40E0D0', '#9370DB', '#228B22', '#B22222'
+            ];
+            
+            for (let i = 0; i < 200; i++) {
+                const col = i % 20;
+                const row = Math.floor(i / 20);
+                const x = col * 13;
+                const y = row * 13;
+                
+                fallbackCtx.fillStyle = colors[i % colors.length];
+                fallbackCtx.fillRect(x, y, 12, 12);
+                
+                fallbackCtx.fillStyle = 'rgba(255,255,255,0.3)';
+                if (i % 3 === 0) fallbackCtx.fillRect(x + 2, y + 2, 8, 8);
+                if (i % 5 === 0) fallbackCtx.fillRect(x + 4, y + 4, 4, 4);
+            }
+            
+            spriteSheet.src = fallbackCanvas.toDataURL();
+        }
+        
+        // Function to draw a sprite from the tileset
+        function drawSprite(ctx, spriteId, x, y, scale = 2) {
+            if (!spriteSheetLoaded || !spriteSheet) return false;
+            
+            const col = spriteId % TILESET_CONFIG.columns;
+            const row = Math.floor(spriteId / TILESET_CONFIG.columns);
+            const srcX = col * (TILESET_CONFIG.tileWidth + 1);
+            const srcY = row * (TILESET_CONFIG.tileHeight + 1);
+            
+            ctx.drawImage(
+                spriteSheet,
+                srcX, srcY, TILESET_CONFIG.tileWidth, TILESET_CONFIG.tileHeight,
+                x - (TILESET_CONFIG.tileWidth * scale) / 2, 
+                y - (TILESET_CONFIG.tileHeight * scale) / 2,
+                TILESET_CONFIG.tileWidth * scale, 
+                TILESET_CONFIG.tileHeight * scale
+            );
+            return true;
+        }
+        
+        // Game constants
+        const DWARF_NAMES = [
+            'Gimli', 'Thorin', 'Balin', 'Dwalin', 'Fili', 'Kili', 
+            'Gloin', 'Oin', 'Ori', 'Nori', 'Dori', 'Bifur', 'Bofur', 'Bombur'
+        ];
+
+        const BUILDING_COSTS = {
+            'house': 80,
+            'coffee_shop': 90,
+            'inn': 100,
+            'spa': 110,
+            'community_center': 140,
+            'gym': 140,
+            'library': 140,
+            'museum': 140,
+            'building': 80
+        };
+
+        const BUILDING_NAMES = {
+            'house': 'Rest House', 
+            'spa': 'Spa & Bathhouse', 
+            'coffee_shop': 'Coffee Shop', 
+            'inn': 'Joy Inn', 
+            'community_center': 'Community Center', 
+            'gym': 'Fitness Gym',
+            'museum': 'Art Museum', 
+            'library': 'Wisdom Library'
+        };
+
+        const ROCKET_PARTS_CONFIG = {
+            engine: { cost: 1000, built: false, building: false, progress: 0 },
+            fuel: { cost: 2500, built: false, building: false, progress: 0 },
+            hull: { cost: 5000, built: false, building: false, progress: 0 },
+            navigation: { cost: 8000, built: false, building: false, progress: 0 },
+            launchpad: { cost: 15000, built: false, building: false, progress: 0 }
+        };
+
+        // Global game state
+        const game = {
+            gold: 0,
+            goldPerSecond: 0,
+            dwarfs: [],
+            buildings: [],
+            negativeBuildings: [],
+            goldDeposits: [],
+            foodSources: [],
+            waterSources: [],
+            time: 0,
+            rocketParts: JSON.parse(JSON.stringify(ROCKET_PARTS_CONFIG)),
+            milestones: {
+                firstAmenity: false,
+                firstBuilding: false,
+                hundredGold: false,
+                thousandGold: false,
+                tenThousandGold: false,
+                tenDwarfs: false,
+                rocketComplete: false
+            }
+        };
+
+        // Canvas and context references
+        let canvas, ctx;
+        
+        // Motion detection variables
+        let isTracking = false;
+        let stabilityLevel = 100;
+        let motionFlash = 0;
+        let lastMotionIntensity = 0;
+        let lastMotionDetected = 0;
+
+        // Message tracking for spam reduction
+        const messageTracker = {
+            recentMessages: new Map(),
+            duplicateWindow: 5000,
+            
+            cleanup: function() {
+                const now = Date.now();
+                for (let [message, data] of this.recentMessages) {
+                    if (now - data.timestamp > this.duplicateWindow) {
+                        this.recentMessages.delete(message);
+                    }
+                }
+            },
+            
+            isDuplicate: function(message) {
+                this.cleanup();
+                return this.recentMessages.has(message);
+            },
+            
+            updateCounter: function(message) {
+                const data = this.recentMessages.get(message);
+                if (data) {
+                    data.count++;
+                    data.timestamp = Date.now();
+                    
+                    const timeStr = '[' + Math.floor(game.time / 60) + 's]';
+                    data.element.textContent = timeStr + ' ' + message + ' (x' + data.count + ')';
+                    
+                    data.element.classList.add('spam-counter');
+                    setTimeout(function() {
+                        if (data.element) data.element.classList.remove('spam-counter');
+                    }, 300);
+                    
+                    return true;
+                }
+                return false;
+            },
+            
+            addMessage: function(message, element, type) {
+                this.recentMessages.set(message, {
+                    count: 1,
+                    element: element,
+                    timestamp: Date.now(),
+                    type: type || 'normal'
+                });
+            }
+        };
+
+        // Enhanced Dwarf class with sprites AND complex behaviors
+        class Dwarf {
+            constructor(x, y, name, isAdult) {
+                this.x = x || 100;
+                this.y = y || 100;
+                this.name = name || this.generateName();
+                this.isAdult = isAdult !== false;
+                this.gender = Math.random() < 0.5 ? 'male' : 'female';
+                this.class = ['fighter', 'mage', 'archer'][Math.floor(Math.random() * 3)];
+                
+                // Basic needs
+                this.hunger = 80 + Math.random() * 20;
+                this.thirst = 80 + Math.random() * 20;
+                this.rest = 70 + Math.random() * 30;
+                this.joy = 60 + Math.random() * 40;
+                this.coffee = 50 + Math.random() * 50;
+                this.cleanliness = 70 + Math.random() * 30;
+                
+                // Personality traits (Big Five model)
+                this.personality = {
+                    openness: Math.random() * 100,
+                    conscientiousness: Math.random() * 100,
+                    extraversion: Math.random() * 100,
+                    agreeableness: Math.random() * 100,
+                    neuroticism: Math.random() * 100
+                };
+                
+                // Reproduction system
+                this.reproductionStrategy = this.gender === 'male' ? 
+                    ['orange', 'blue', 'yellow'][Math.floor(Math.random() * 3)] : null;
+                this.isPregnant = false;
+                this.pregnancyTimer = 0;
+                this.maturityTimer = isAdult !== false ? 0 : Math.random() * 1800;
+                this.reproductionCooldown = 0;
+                this.territoryX = x;
+                this.territoryY = y;
+                this.guardedFemale = null;
+                this.mateSeekingTimer = 0;
+                
+                // Work and behavior
+                this.task = 'idle';
+                this.workTimer = 0;
+                this.efficiency = 0.8 + Math.random() * 0.4;
+                this.targetX = x;
+                this.targetY = y;
+                this.speed = 0.5 + Math.random() * 0.5;
+                
+                // Construction states
+                this.rocketPart = null;
+                this.amenityType = null;
+                this.negativeType = null;
+                
+                // Personality states
+                this.panicLevel = 0;
+                this.personalityState = 'normal';
+                
+                // Visual
+                this.direction = Math.random() * Math.PI * 2;
+                this.animPhase = Math.random() * Math.PI * 2;
+            }
+            
+            generateName() {
+                return DWARF_NAMES[Math.floor(Math.random() * DWARF_NAMES.length)] + '_' + Math.floor(Math.random() * 100);
+            }
+            
+            getSpriteId() {
+                const key = this.gender + '_' + this.class;
+                return SPRITE_MAP[key] || SPRITE_MAP.male_fighter;
+            }
+            
+            update() {
+                // Age and maturity system
+                if (!this.isAdult) {
+                    this.maturityTimer++;
+                    if (this.maturityTimer >= 1800) {
+                        this.isAdult = true;
+                        addLog(this.name + ' has reached maturity!', true);
+                    }
+                }
+                
+                // Pregnancy system
+                if (this.isPregnant) {
+                    this.pregnancyTimer++;
+                    if (this.pregnancyTimer >= 3600) {
+                        this.giveBirth();
+                    }
+                }
+                
+                // Cooldowns
+                if (this.reproductionCooldown > 0) this.reproductionCooldown--;
+                if (this.mateSeekingTimer > 0) this.mateSeekingTimer--;
+                
+                // Needs decay
+                if (game.time % 4 === 0) {
+                    this.hunger = Math.max(0, this.hunger - 0.06);
+                    this.thirst = Math.max(0, this.thirst - 0.08);
+                    this.rest = Math.max(0, this.rest - 0.04);
+                    this.joy = Math.max(0, this.joy - 0.03);
+                    this.coffee = Math.max(0, this.coffee - 0.025);
+                    this.cleanliness = Math.max(0, this.cleanliness - 0.035);
+                }
+                
+                // Personality state updates
+                this.updatePersonalityState();
+                
+                // Reproduction behavior
+                if (this.isAdult && this.reproductionCooldown <= 0) {
+                    this.updateReproductionBehavior();
+                }
+                
+                this.executeTask();
+                this.updateTask();
+                this.move();
+
+                if (this.workTimer > 0) this.workTimer--;
+                this.animPhase += 0.1;
+            }
+            
+            updatePersonalityState() {
+                if (this.panicLevel > 0) this.panicLevel = Math.max(0, this.panicLevel - 1);
+                
+                // Motion-induced panic
+                if (lastMotionDetected > 0 && (Date.now() - lastMotionDetected) < 2000) {
+                    if (this.personality.neuroticism > 60 && Math.random() < 0.1) {
+                        this.panicLevel = Math.min(100, this.panicLevel + 5);
+                        if (this.panicLevel > 50 && this.personalityState !== 'panicking') {
+                            this.personalityState = 'panicking';
+                            this.task = 'panicking';
+                            this.workTimer = 120;
+                        }
+                    }
+                }
+                
+                // Personality-based state changes
+                if (this.personalityState === 'normal') {
+                    if (this.personality.neuroticism > 80 && Math.random() < 0.001) {
+                        this.personalityState = 'anxious';
+                    } else if (this.personality.conscientiousness < 20 && Math.random() < 0.0008) {
+                        this.personalityState = 'lazy';
+                    } else if (this.personality.openness > 85 && Math.random() < 0.0005) {
+                        this.personalityState = 'creative_burst';
+                    }
+                } else {
+                    if (Math.random() < 0.01) {
+                        this.personalityState = 'normal';
+                    }
+                }
+            }
+            
+            updateReproductionBehavior() {
+                if (!this.isAdult || this.reproductionCooldown > 0) return;
+                
+                if (this.gender === 'male' && this.mateSeekingTimer <= 0) {
+                    this.seekMating();
+                } else if (this.gender === 'female' && !this.isPregnant) {
+                    this.evaluateMales();
+                }
+            }
+            
+            seekMating() {
+                const availableFemales = game.dwarfs.filter(function(d) {
+                    return d.isAdult && d.gender === 'female' && !d.isPregnant && d.reproductionCooldown <= 0;
+                });
+                
+                if (availableFemales.length === 0) return;
+                
+                const target = availableFemales[Math.floor(Math.random() * availableFemales.length)];
+                
+                switch (this.reproductionStrategy) {
+                    case 'orange':
+                        this.establishTerritory(target);
+                        break;
+                    case 'blue':
+                        this.guardFemale(target);
+                        break;
+                    case 'yellow':
+                        this.sneakyMating(target);
+                        break;
+                }
+            }
+            
+            establishTerritory(female) {
+                const distance = this.distanceTo(female);
+                if (distance < 80) {
+                    this.territoryX = female.x;
+                    this.territoryY = female.y;
+                    
+                    const competitors = game.dwarfs.filter(function(d) {
+                        return d.gender === 'male' && d !== this && d.distanceTo(female) < 60;
+                    }, this);
+                    
+                    const self = this;
+                    competitors.forEach(function(competitor) {
+                        if (Math.random() < 0.1) {
+                            competitor.task = 'fleeing';
+                            competitor.workTimer = 180;
+                            competitor.targetX = self.x < competitor.x ? canvas.width : 0;
+                            competitor.targetY = self.y < competitor.y ? canvas.height : 0;
+                        }
+                    });
+                    
+                    if (distance < 25 && Math.random() < 0.02) {
+                        this.attemptMating(female);
+                    }
+                }
+                
+                this.mateSeekingTimer = 300;
+            }
+            
+            guardFemale(female) {
+                this.guardedFemale = female;
+                this.targetX = female.x + Math.random() * 40 - 20;
+                this.targetY = female.y + Math.random() * 40 - 20;
+                
+                const distance = this.distanceTo(female);
+                if (distance < 30 && Math.random() < 0.015) {
+                    this.attemptMating(female);
+                }
+                
+                this.mateSeekingTimer = 240;
+            }
+            
+            sneakyMating(female) {
+                const distance = this.distanceTo(female);
+                
+                const guardsNearby = game.dwarfs.filter(function(d) {
+                    return d.gender === 'male' && d !== this && d.distanceTo(female) < 50;
+                }, this).length > 0;
+                
+                if (!guardsNearby && distance < 35) {
+                    if (Math.random() < 0.025) {
+                        this.attemptMating(female);
+                    }
+                } else if (guardsNearby) {
+                    this.targetX = female.x + Math.random() * 100 - 50;
+                    this.targetY = female.y + Math.random() * 100 - 50;
+                }
+                
+                this.mateSeekingTimer = 180;
+            }
+            
+            evaluateMales() {
+                if (this.isPregnant) return;
+                
+                const nearbyMales = game.dwarfs.filter(function(d) {
+                    return d.isAdult && d.gender === 'male' && d.distanceTo(this) < 40;
+                }, this);
+                
+                if (nearbyMales.length > 0) {
+                    const preferred = this.selectPreferredMale(nearbyMales);
+                    if (preferred && Math.random() < 0.008) {
+                        this.acceptMating(preferred);
+                    }
+                }
+            }
+            
+            selectPreferredMale(males) {
+                const self = this;
+                let scored = males.map(function(male) {
+                    return {
+                        male: male,
+                        score: self.scoreMate(male)
+                    };
+                });
+                
+                scored.sort(function(a, b) { return b.score - a.score; });
+                return scored.length > 0 ? scored[0].male : null;
+            }
+            
+            scoreMate(male) {
+                let score = 50;
+                
+                if (this.personality.agreeableness > 60) {
+                    if (male.reproductionStrategy === 'blue') score += 30;
+                    if (male.reproductionStrategy === 'orange') score -= 10;
+                }
+                
+                if (this.personality.openness > 70) {
+                    if (male.reproductionStrategy === 'yellow') score += 20;
+                }
+                
+                if (this.personality.neuroticism < 40) {
+                    if (male.reproductionStrategy === 'orange') score += 25;
+                }
+                
+                return score + Math.random() * 20;
+            }
+            
+            attemptMating(female) {
+                if (female.reproductionCooldown > 0 || female.isPregnant) return false;
+                
+                const success = Math.random() < 0.7;
+                if (success) {
+                    female.isPregnant = true;
+                    female.pregnancyTimer = 0;
+                    female.reproductionCooldown = 7200;
+                    this.reproductionCooldown = 3600;
+                    
+                    addLog(this.name + ' (' + this.reproductionStrategy + ') and ' + female.name + ' are expecting!', true, 'success');
+                    return true;
+                }
+                return false;
+            }
+            
+            acceptMating(male) {
+                return male.attemptMating(this);
+            }
+            
+            updateTask() {
+                if (this.workTimer > 0) return;
+                
+                if (this.personalityState === 'panicking' && this.panicLevel > 30) {
+                    this.task = 'panicking';
+                    this.workTimer = 60;
+                    return;
+                }
+                
+                if (this.personalityState === 'lazy' && Math.random() < 0.3) {
+                    this.task = 'idle';
+                    this.workTimer = 120;
+                    return;
+                }
+                
+                const newTask = this.chooseBestTask();
+                if (newTask !== this.task) {
+                    this.task = newTask;
+                    this.setTaskTarget();
+                }
+            }
+            
+            chooseBestTask() {
+                if (!this.isAdult) return 'idle';
+                
+                // Critical survival needs
+                if (this.hunger < 15 || this.thirst < 10) {
+                    return this.hunger < this.thirst ? 'seeking_food' : 'seeking_water';
+                }
+                
+                // Rocket construction
+                const rocketPart = this.shouldBuildRocket(game.gold);
+                if (rocketPart) {
+                    return 'rocket_construction';
+                }
+                
+                // Infrastructure building
+                if (this.shouldBuildInfrastructure()) {
+                    return 'infrastructure_construction';
+                }
+                
+                // Amenity seeking
+                const neededAmenity = this.getNeededAmenity();
+                if (neededAmenity) return neededAmenity;
+                
+                // Mining
+                if (game.goldDeposits && game.goldDeposits.length > 0) {
+                    return 'mining';
+                }
+                
+                return 'idle';
+            }
+            
+            shouldBuildRocket(gold) {
+                if (!this.isAdult) return false;
+                
+                for (let part in game.rocketParts) {
+                    const data = game.rocketParts[part];
+                    if (!data.built && !data.building && gold >= data.cost) {
+                        return part;
+                    }
+                }
+                return false;
+            }
+            
+            shouldBuildInfrastructure() {
+                if (!this.isAdult) return false;
+                
+                const adultDwarfs = game.dwarfs.filter(function(d) { return d.isAdult; }).length;
+                const totalBuildings = game.buildings.length;
+                const amenityBuildings = game.buildings.filter(function(b) { return b.type === 'amenity'; }).length;
+                
+                const maxBuildings = adultDwarfs * 3;
+                const maxAmenities = adultDwarfs * 2;
+                
+                const averageNeeds = this.calculateAverageNeeds();
+                
+                if (amenityBuildings < maxAmenities) {
+                    if (averageNeeds.rest < 50 && game.gold >= 80) return 'house';
+                    if (averageNeeds.coffee < 40 && game.gold >= 90) return 'coffee_shop';
+                    if (averageNeeds.joy < 40 && game.gold >= 100) return 'inn';
+                    if (averageNeeds.cleanliness < 45 && game.gold >= 110) return 'spa';
+                }
+                
+                if (totalBuildings < maxBuildings && game.gold >= 80) {
+                    return 'building';
+                }
+                
+                return false;
+            }
+            
+            calculateAverageNeeds() {
+                if (game.dwarfs.length === 0) return { rest: 100, joy: 100, coffee: 100, cleanliness: 100 };
+                
+                const totals = { rest: 0, joy: 0, coffee: 0, cleanliness: 0 };
+                game.dwarfs.forEach(function(dwarf) {
+                    totals.rest += dwarf.rest;
+                    totals.joy += dwarf.joy;
+                    totals.coffee += dwarf.coffee;
+                    totals.cleanliness += dwarf.cleanliness;
+                });
+                
+                const count = game.dwarfs.length;
+                return {
+                    rest: totals.rest / count,
+                    joy: totals.joy / count,
+                    coffee: totals.coffee / count,
+                    cleanliness: totals.cleanliness / count
+                };
+            }
+            
+            getNeededAmenity() {
+                if (this.rest < 25) return 'seeking_rest';
+                if (this.joy < 20) return 'seeking_joy';
+                if (this.coffee < 15) return 'seeking_coffee';
+                if (this.cleanliness < 25) return 'seeking_cleanliness';
+                return null;
+            }
+            
+            setTaskTarget() {
+                switch (this.task) {
+                    case 'rocket_construction':
+                        this.startRocketConstruction();
+                        break;
+                    case 'infrastructure_construction':
+                        this.startInfrastructureConstruction();
+                        break;
+                }
+            }
+            
+            startRocketConstruction() {
+                const part = this.shouldBuildRocket(game.gold);
+                if (!part) return;
+                
+                const partData = game.rocketParts[part];
+                const cost = partData.cost;
+                
+                if (game.gold >= cost && !partData.building && !partData.built) {
+                    partData.building = true;
+                    game.gold -= cost;
+                    
+                    this.task = 'building_rocket';
+                    this.workTimer = 600;
+                    this.rocketPart = part;
+                    this.targetX = canvas.width / 2;
+                    this.targetY = 100;
+                    
+                    addLog(this.name + ' starting ' + part + ' construction!', true);
+                }
+            }
+            
+            startInfrastructureConstruction() {
+                const averageNeeds = this.calculateAverageNeeds();
+                let buildingType = null;
+                let cost = 0;
+                
+                if (averageNeeds.rest < 50 && game.gold >= 80) {
+                    buildingType = 'house';
+                    cost = 80;
+                } else if (averageNeeds.coffee < 40 && game.gold >= 90) {
+                    buildingType = 'coffee_shop';
+                    cost = 90;
+                } else if (averageNeeds.joy < 40 && game.gold >= 100) {
+                    buildingType = 'inn';
+                    cost = 100;
+                } else if (averageNeeds.cleanliness < 45 && game.gold >= 110) {
+                    buildingType = 'spa';
+                    cost = 110;
+                } else if (game.gold >= 80) {
+                    buildingType = 'building';
+                    cost = 80;
+                }
+                
+                if (buildingType && game.gold >= cost) {
+                    game.gold -= cost;
+                    
+                    if (buildingType === 'building') {
+                        this.task = 'building_structure';
+                        this.workTimer = 400;
+                    } else {
+                        this.task = 'building_amenity';
+                        this.amenityType = buildingType;
+                        this.workTimer = 450;
+                        addLog(this.name + ' building ' + (BUILDING_NAMES[buildingType] || buildingType) + '!', true);
+                    }
+                    
+                    this.targetX = Math.random() * (canvas.width - 100) + 50;
+                    this.targetY = Math.random() * (canvas.height - 100) + 50;
+                }
+            }
+            
+            executeTask() {
+                switch (this.task) {
+                    case 'seeking_food':
+                        this.seekFood();
+                        break;
+                    case 'seeking_water':
+                        this.seekWater();
+                        break;
+                    case 'mining':
+                        this.mineGold();
+                        break;
+                    case 'building_rocket':
+                        this.buildRocket();
+                        break;
+                    case 'building_structure':
+                    case 'building_amenity':
+                        this.buildStructure();
+                        break;
+                    case 'seeking_rest':
+                    case 'seeking_joy':
+                    case 'seeking_coffee':
+                    case 'seeking_cleanliness':
+                        this.useAmenity();
+                        break;
+                    case 'panicking':
+                        this.panic();
+                        break;
+                    case 'fleeing':
+                        break;
+                    default:
+                        this.wander();
+                }
+            }
+            
+            seekFood() {
+                const nearbyFood = this.findNearestResource(game.foodSources);
+                if (nearbyFood && this.distanceTo(nearbyFood) < 30) {
+                    if (nearbyFood.amount > 5) {
+                        const consumed = Math.min(15, nearbyFood.amount);
+                        this.hunger = Math.min(100, this.hunger + consumed * 3);
+                        nearbyFood.amount -= consumed;
+                        this.task = 'idle';
+                        this.workTimer = 30;
+                        
+                        if (Math.random() < 0.1) {
+                            addLog(this.name + ' feels satisfied after eating', false);
+                        }
+                    }
+                } else if (nearbyFood) {
+                    this.targetX = nearbyFood.x;
+                    this.targetY = nearbyFood.y;
+                } else {
+                    this.task = 'idle';
+                }
+            }
+            
+            seekWater() {
+                const nearbyWater = this.findNearestResource(game.waterSources);
+                if (nearbyWater && this.distanceTo(nearbyWater) < 30) {
+                    if (nearbyWater.amount > 8) {
+                        const consumed = Math.min(20, nearbyWater.amount);
+                        this.thirst = Math.min(100, this.thirst + consumed * 3);
+                        nearbyWater.amount -= consumed;
+                        this.task = 'idle';
+                        this.workTimer = 30;
+                        
+                        if (Math.random() < 0.1) {
+                            addLog(this.name + ' feels refreshed after drinking', false);
+                        }
+                    }
+                } else if (nearbyWater) {
+                    this.targetX = nearbyWater.x;
+                    this.targetY = nearbyWater.y;
+                } else {
+                    this.task = 'idle';
+                }
+            }
+            
+            mineGold() {
+                const nearbyDeposit = this.findNearestResource(game.goldDeposits);
+                if (nearbyDeposit && this.distanceTo(nearbyDeposit) < 25) {
+                    const mined = Math.min(2 * this.efficiency, nearbyDeposit.gold);
+                    game.gold = (game.gold || 0) + mined;
+                    nearbyDeposit.gold -= mined;
+                    
+                    if (nearbyDeposit.gold <= 0) {
+                        const index = game.goldDeposits.indexOf(nearbyDeposit);
+                        game.goldDeposits.splice(index, 1);
+                        this.task = 'idle';
+                    }
+                } else if (nearbyDeposit) {
+                    this.targetX = nearbyDeposit.x;
+                    this.targetY = nearbyDeposit.y;
+                } else {
+                    this.task = 'idle';
+                }
+            }
+            
+            buildRocket() {
+                if (this.distanceTo({x: this.targetX, y: this.targetY}) < 30) {
+                    const part = game.rocketParts[this.rocketPart];
+                    if (part && part.building) {
+                        part.progress = (part.progress || 0) + 0.01 * this.efficiency;
+                        if (part.progress >= 1) {
+                            part.built = true;
+                            part.building = false;
+                            addLog(this.rocketPart.toUpperCase() + ' completed by ' + this.name + '!', true, 'success');
+                            this.task = 'idle';
+                        }
+                    }
+                }
+            }
+            
+            buildStructure() {
+                const distance = this.distanceTo({x: this.targetX, y: this.targetY});
+                
+                if (distance < 50) {
+                    if (this.workTimer <= 0) {
+                        if (this.task === 'building_amenity') {
+                            const newBuilding = {
+                                x: this.targetX,
+                                y: this.targetY,
+                                type: 'amenity',
+                                amenityType: this.amenityType
+                            };
+                            game.buildings.push(newBuilding);
+                            addLog((BUILDING_NAMES[this.amenityType] || this.amenityType) + ' completed!', true, 'success');
+                        } else {
+                            const newBuilding = {
+                                x: this.targetX,
+                                y: this.targetY,
+                                type: 'building'
+                            };
+                            game.buildings.push(newBuilding);
+                            addLog('Building completed by ' + this.name + '!', true, 'success');
+                        }
+                        
+                        this.task = 'idle';
+                        this.workTimer = 0;
+                        this.amenityType = null;
+                    }
+                }
+            }
+            
+            useAmenity() {
+                const amenityType = this.getAmenityTypeForTask();
+                const suitableBuildings = game.buildings.filter(function(b) {
+                    return b.type === 'amenity' && b.amenityType === amenityType;
+                });
+                
+                if (suitableBuildings.length > 0) {
+                    const nearest = this.findNearestResource(suitableBuildings);
+                    if (this.distanceTo(nearest) < 35) {
+                        this.useAmenityBuilding(amenityType);
+                        this.task = 'idle';
+                        this.workTimer = 60;
+                    } else {
+                        this.targetX = nearest.x;
+                        this.targetY = nearest.y;
+                    }
+                } else {
+                    this.task = 'idle';
+                }
+            }
+            
+            getAmenityTypeForTask() {
+                switch (this.task) {
+                    case 'seeking_rest': return 'house';
+                    case 'seeking_joy': return 'inn';
+                    case 'seeking_coffee': return 'coffee_shop';
+                    case 'seeking_cleanliness': return 'spa';
+                    default: return 'house';
+                }
+            }
+            
+            useAmenityBuilding(type) {
+                switch (type) {
+                    case 'house':
+                        this.rest = Math.min(100, this.rest + 50);
+                        break;
+                    case 'inn':
+                        this.joy = Math.min(100, this.joy + 45);
+                        break;
+                    case 'coffee_shop':
+                        this.coffee = Math.min(100, this.coffee + 60);
+                        break;
+                    case 'spa':
+                        this.cleanliness = Math.min(100, this.cleanliness + 65);
+                        break;
+                }
+            }
+            
+            panic() {
+                this.targetX = this.x + Math.random() * 100 - 50;
+                this.targetY = this.y + Math.random() * 100 - 50;
+                
+                this.targetX = Math.max(50, Math.min(canvas.width - 50, this.targetX));
+                this.targetY = Math.max(50, Math.min(canvas.height - 50, this.targetY));
+                
+                if (this.workTimer <= 0) {
+                    this.personalityState = 'normal';
+                    this.panicLevel = 0;
+                    this.task = 'idle';
+                }
+            }
+            
+            wander() {
+                if (Math.random() < 0.02) {
+                    this.targetX = Math.random() * canvas.width;
+                    this.targetY = Math.random() * canvas.height;
+                }
+            }
+            
+            move() {
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 5) {
+                    let moveSpeed = this.speed;
+                    
+                    if (this.task === 'panicking') moveSpeed *= 2;
+                    if (this.task === 'fleeing') moveSpeed *= 1.5;
+                    if (this.personalityState === 'lazy') moveSpeed *= 0.5;
+                    
+                    this.x += (dx / distance) * moveSpeed;
+                    this.y += (dy / distance) * moveSpeed;
+                    this.direction = Math.atan2(dy, dx);
+                }
+                
+                this.x = Math.max(20, Math.min(canvas.width - 20, this.x));
+                this.y = Math.max(20, Math.min(canvas.height - 20, this.y));
+            }
+            
+            findNearestResource(resources) {
+                if (!resources || resources.length === 0) return null;
+                
+                let nearest = resources[0];
+                let minDistance = this.distanceTo(nearest);
+                
+                for (let i = 0; i < resources.length; i++) {
+                    const resource = resources[i];
+                    const distance = this.distanceTo(resource);
+                    if (distance < minDistance) {
+                        nearest = resource;
+                        minDistance = distance;
+                    }
+                }
+                
+                return nearest;
+            }
+            
+            distanceTo(target) {
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+            
+            giveBirth() {
+                this.isPregnant = false;
+                this.pregnancyTimer = 0;
+                this.reproductionCooldown = 7200;
+                
+                const baby = new Dwarf(
+                    this.x + Math.random() * 40 - 20,
+                    this.y + Math.random() * 40 - 20,
+                    null,
+                    false
+                );
+                
+                game.dwarfs.push(baby);
+                addLog(this.name + ' gave birth to ' + baby.name + '!', true, 'success');
+            }
+            
+            draw() {
+                if (!ctx) return;
+                
+                ctx.save();
+                
+                // Territory visualization for orange males
+                if (this.isAdult && this.gender === 'male' && this.reproductionStrategy === 'orange') {
+                    ctx.strokeStyle = 'rgba(255, 102, 0, 0.3)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(this.territoryX, this.territoryY, 40, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                // Guard lines for blue males
+                if (this.isAdult && this.gender === 'male' && this.reproductionStrategy === 'blue' && this.guardedFemale) {
+                    ctx.strokeStyle = 'rgba(0, 102, 255, 0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.guardedFemale.x, this.guardedFemale.y);
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                }
+                
+                // Try to draw sprite first
+                const spriteDrawn = drawSprite(ctx, this.getSpriteId(), this.x, this.y, 2);
+                
+                if (!spriteDrawn) {
+                    // Fallback drawing
+                    if (this.isAdult) {
+                        ctx.fillStyle = this.gender === 'male' ? '#4A90E2' : '#E24A90';
+                    } else {
+                        ctx.fillStyle = '#FFB6C1';
+                    }
+                    
+                    const bodySize = this.isAdult ? 8 : 5;
+                    
+                    if (this.personalityState === 'panicking') {
+                        ctx.shadowColor = '#FF0000';
+                        ctx.shadowBlur = 10;
+                    }
+                    
+                    ctx.fillRect(this.x - bodySize, this.y - bodySize, bodySize * 2, bodySize * 2);
+                    ctx.shadowBlur = 0;
+                    
+                    // Personality hat color
+                    const hatColor = this.getPersonalityColor();
+                    ctx.fillStyle = hatColor;
+                    ctx.fillRect(this.x - 6, this.y - bodySize - 4, 12, 4);
+                }
+                
+                // Gender indicator dot
+                ctx.fillStyle = this.gender === 'male' ? '#0066FF' : '#FF69B4';
+                ctx.beginPath();
+                ctx.arc(this.x - 10, this.y - 10, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Strategy indicator for adult males
+                if (this.isAdult && this.gender === 'male') {
+                    const strategyColors = {
+                        'orange': '#FF6600',
+                        'blue': '#0066FF', 
+                        'yellow': '#FFFF00'
+                    };
+                    ctx.fillStyle = strategyColors[this.reproductionStrategy];
+                    ctx.beginPath();
+                    ctx.arc(this.x + 10, this.y - 10, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Pregnancy glow and progress
+                if (this.isPregnant) {
+                    ctx.shadowColor = '#FFD700';
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                    const bodySize = this.isAdult ? 8 : 5;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, bodySize + 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    
+                    const progressWidth = 20;
+                    const progress = this.pregnancyTimer / 3600;
+                    ctx.fillStyle = 'rgba(255, 20, 147, 0.7)';
+                    ctx.fillRect(this.x - progressWidth/2, this.y + bodySize + 5, progressWidth * progress, 3);
+                }
+                
+                // Maturity progress for children
+                if (!this.isAdult) {
+                    const progressWidth = 16;
+                    const progress = this.maturityTimer / 1800;
+                    ctx.fillStyle = 'rgba(50, 205, 50, 0.7)';
+                    const bodySize = 5;
+                    ctx.fillRect(this.x - progressWidth/2, this.y + bodySize + 5, progressWidth * progress, 2);
+                }
+                
+                // Need bars
+                this.drawNeedBars();
+                
+                // Name and task
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.name, this.x, this.y - 25);
+                
+                // Task indicator
+                const taskEmojis = {
+                    'panicking': '😰',
+                    'fleeing': '🏃',
+                    'building_rocket': '🚀',
+                    'mining': '⛏️',
+                    'seeking_food': '🍓',
+                    'seeking_water': '💧',
+                    'seeking_rest': '😴',
+                    'seeking_joy': '😊',
+                    'seeking_coffee': '☕'
+                };
+                
+                if (taskEmojis[this.task]) {
+                    ctx.fillText(taskEmojis[this.task], this.x, this.y + 20);
+                }
+                
+                ctx.textAlign = 'left';
+                ctx.restore();
+            }
+            
+            drawNeedBars() {
+                const barWidth = 12;
+                const barHeight = 2;
+                const startY = this.y - 30;
+                
+                // Hunger (red)
+                ctx.fillStyle = this.hunger < 20 ? '#FF0000' : '#FF4444';
+                ctx.fillRect(this.x - barWidth/2, startY, barWidth * (this.hunger / 100), barHeight);
+                
+                // Thirst (blue)
+                ctx.fillStyle = this.thirst < 15 ? '#0000FF' : '#4444FF';
+                ctx.fillRect(this.x - barWidth/2, startY + 3, barWidth * (this.thirst / 100), barHeight);
+                
+                // Show other needs if low
+                if (this.rest < 25) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(this.x - barWidth/2, startY + 6, barWidth * (this.rest / 100), 1);
+                }
+                
+                if (this.coffee < 20) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(this.x - barWidth/2, startY + 8, barWidth * (this.coffee / 100), 1);
+                }
+            }
+            
+            getPersonalityColor() {
+                if (this.personality.openness > 70) return '#8A2BE2';
+                if (this.personality.conscientiousness > 70) return '#20B2AA';
+                if (this.personality.extraversion > 70) return '#FFD700';
+                if (this.personality.agreeableness > 70) return '#32CD32';
+                if (this.personality.neuroticism > 70) return '#FF6347';
+                return '#708090';
+            }
+        }
+
+        // Initialize canvas
+        function initializeCanvas() {
+            console.log('Initializing canvas...');
+            canvas = document.getElementById('gameCanvas');
+            if (!canvas) {
+                console.error('Canvas element not found!');
+                return false;
+            }
+            
+            ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2D context!');
+                return false;
+            }
+            
+            ctx.imageSmoothingEnabled = false;
+            
+            console.log('Canvas initialized successfully:', canvas.width, 'x', canvas.height);
+            return true;
+        }
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            
+            const container = document.getElementById('gameContainer');
+            const containerWidth = container.clientWidth;
+            
+            canvas.width = Math.min(containerWidth - 6, 800);
+            canvas.height = Math.min(window.innerHeight * 0.75, 1200);
+            
+            canvas.style.width = canvas.width + 'px';
+            canvas.style.height = canvas.height + 'px';
+            
+            if (ctx) {
+                ctx.imageSmoothingEnabled = false;
+            }
+        }
+
+        // Initialize dwarfs
+        function initDwarfs() {
+            console.log('Initializing dwarfs...');
+            if (!canvas || !ctx) {
+                console.error('Canvas or context not ready for dwarf initialization!');
+                return;
+            }
+            
+            game.dwarfs = [];
+            
+            for (let i = 0; i < 3; i++) {
+                const x = canvas.width / 2 + (i - 1) * 40;
+                const y = canvas.height / 2;
+                
+                const newDwarf = new Dwarf(x, y);
+                game.dwarfs.push(newDwarf);
+            }
+            
+            addLog('Three dwarfs have arrived to start the colony!', true);
+            console.log('Dwarf initialization complete. Total dwarfs:', game.dwarfs.length);
+        }
+
+        // Initialize resources
+        function initFoodAndWaterSources() {
+            if (!canvas) return;
+            
+            if (!game.foodSources) game.foodSources = [];
+            if (!game.waterSources) game.waterSources = [];
+            
+            if (game.foodSources.length === 0) {
+                for (let i = 0; i < 6; i++) {
+                    game.foodSources.push({
+                        x: Math.random() * (canvas.width - 100) + 50,
+                        y: Math.random() * (canvas.height - 100) + 50,
+                        amount: 80 + Math.random() * 80,
+                        maxAmount: 150,
+                        regrowTimer: 0,
+                        type: 'berries'
+                    });
+                }
+            }
+            
+            if (game.waterSources.length === 0) {
+                for (let i = 0; i < 5; i++) {
+                    game.waterSources.push({
+                        x: Math.random() * (canvas.width - 100) + 50,
+                        y: Math.random() * (canvas.height - 100) + 50,
+                        amount: 120 + Math.random() * 100,
+                        maxAmount: 250,
+                        regrowTimer: 0,
+                        type: 'spring'
+                    });
+                }
+            }
+        }
+
+        function initializeGoldDeposits() {
+            if (!canvas) return;
+            if (!game.goldDeposits) game.goldDeposits = [];
+            
+            for (let i = 0; i < 5; i++) {
+                game.goldDeposits.push({
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: Math.random() * (canvas.height - 100) + 50,
+                    gold: 20 + Math.random() * 30,
+                    discovered: false
+                });
+            }
+        }
+
+        // Drawing functions with sprites
+        function drawBackground() {
+            ctx.fillStyle = '#0f0f23';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (motionFlash > 0) {
+                ctx.fillStyle = 'rgba(255, 0, 0, ' + (motionFlash / 40) + ')';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // Draw medieval ground tiles
+            for (let i = 0; i < 20; i++) {
+                const x = (i * 47) % canvas.width;
+                const y = Math.floor((i * 47) / canvas.width) * 24 + 10;
+                if (y < canvas.height) {
+                    drawSprite(ctx, 19, x, y, 1.5);
+                }
+            }
+        }
+
+        function drawStars() {
+            for (let i = 0; i < 15; i++) {
+                const x = (game.time * 0.01 + i * 123) % canvas.width;
+                const y = (game.time * 0.005 + i * 456) % canvas.height;
+                
+                drawSprite(ctx, 17 + (i % 2), x, y, 1);
+            }
+        }
+
+        function drawColonyCenter() {
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2);
+            ctx.fill();
+            
+            drawSprite(ctx, SPRITE_MAP.castle, canvas.width / 2, canvas.height / 2, 3);
+        }
+
+        function drawRocketConstruction() {
+            let anyBuilding = false;
+            for (let part in game.rocketParts) {
+                if (game.rocketParts[part].building || game.rocketParts[part].built) {
+                    anyBuilding = true;
+                    break;
+                }
+            }
+            
+            if (anyBuilding) {
+                const rocketX = canvas.width / 2 - 30;
+                const rocketY = 70;
+                
+                drawSprite(ctx, SPRITE_MAP.tower, rocketX + 30, rocketY + 30, 4);
+                
+                ctx.strokeStyle = '#FF6B6B';
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(rocketX, rocketY, 60, 60);
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawFoodSource(source) {
+            const spriteDrawn = drawSprite(ctx, SPRITE_MAP.food_source, source.x, source.y, 2);
+            
+            if (!spriteDrawn) {
+                ctx.fillStyle = source.amount > 15 ? '#228B22' : '#8B4513';
+                ctx.beginPath();
+                ctx.arc(source.x, source.y, 12, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.floor(source.amount), source.x, source.y - 20);
+            ctx.textAlign = 'left';
+        }
+
+        function drawWaterSource(source) {
+            const spriteDrawn = drawSprite(ctx, SPRITE_MAP.water_well, source.x, source.y, 2);
+            
+            if (!spriteDrawn) {
+                ctx.fillStyle = source.amount > 30 ? '#1E90FF' : '#4682B4';
+                ctx.beginPath();
+                ctx.arc(source.x, source.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.floor(source.amount), source.x, source.y - 25);
+            ctx.textAlign = 'left';
+        }
+
+        function drawGoldDeposit(deposit) {
+            const spriteDrawn = drawSprite(ctx, SPRITE_MAP.gold_chest, deposit.x, deposit.y, 2);
+            
+            if (!spriteDrawn) {
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(deposit.x, deposit.y, 8 + Math.sin(game.time * 0.1) * 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.floor(deposit.gold), deposit.x, deposit.y - 20);
+            ctx.textAlign = 'left';
+        }
+
+        function drawBuilding(building) {
+            let spriteId = SPRITE_MAP.house;
+            
+            if (building.type === 'amenity') {
+                switch (building.amenityType) {
+                    case 'house': spriteId = SPRITE_MAP.house; break;
+                    case 'inn': spriteId = SPRITE_MAP.inn; break;
+                    case 'coffee_shop': spriteId = SPRITE_MAP.coffee_shop; break;
+                    case 'spa': spriteId = SPRITE_MAP.spa; break;
+                    case 'library': spriteId = SPRITE_MAP.library; break;
+                    case 'gym': spriteId = SPRITE_MAP.gym; break;
+                    case 'museum': spriteId = SPRITE_MAP.museum; break;
+                    default: spriteId = SPRITE_MAP.house; break;
+                }
+            } else {
+                spriteId = SPRITE_MAP.city;
+            }
+            
+            const spriteDrawn = drawSprite(ctx, spriteId, building.x, building.y, 3);
+            
+            if (!spriteDrawn) {
+                ctx.fillStyle = '#4682B4';
+                ctx.fillRect(building.x - 15, building.y - 15, 30, 25);
+            }
+        }
+
+        function renderGame() {
+            if (!ctx) {
+                console.error('Cannot render: no canvas context');
+                return;
+            }
+            
+            drawBackground();
+            drawStars();
+            drawColonyCenter();
+            
+            if (game.goldDeposits && game.goldDeposits.length > 0) {
+                game.goldDeposits.forEach(drawGoldDeposit);
+            }
+            
+            if (game.foodSources && game.foodSources.length > 0) {
+                game.foodSources.forEach(drawFoodSource);
+            }
+            
+            if (game.waterSources && game.waterSources.length > 0) {
+                game.waterSources.forEach(drawWaterSource);
+            }
+            
+            if (game.buildings && game.buildings.length > 0) {
+                game.buildings.forEach(drawBuilding);
+            }
+            
+            game.dwarfs.forEach(function(dwarf) {
+                if (dwarf && typeof dwarf.draw === 'function') {
+                    dwarf.draw();
+                }
+            });
+            
+            drawRocketConstruction();
+        }
+
+        // Game update
+        function updateGame() {
+            if (game.dwarfs && game.dwarfs.length > 0) {
+                game.dwarfs.forEach(function(dwarf) {
+                    if (dwarf && typeof dwarf.update === 'function') {
+                        dwarf.update();
+                    }
+                });
+            }
+            
+            updateFoodAndWaterSources();
+            updateGoldDeposits();
+            
+            // Spawn new dwarfs occasionally
+            const adultDwarfs = game.dwarfs.filter(function(d) { return d.isAdult; }).length;
+            const totalBuildings = game.buildings.length;
+            
+            if (totalBuildings >= adultDwarfs && 
+                game.time % 2400 === 0 && 
+                Math.random() < 0.12) {
+                
+                const newX = Math.max(50, Math.min(canvas.width - 50, canvas.width / 2 + Math.random() * 100 - 50));
+                const newY = Math.max(50, Math.min(canvas.height - 50, canvas.height / 2));
+                
+                game.dwarfs.push(new Dwarf(newX, newY));
+                addLog('New dwarf joined the colony seeking work!', false);
+            }
+            
+            checkMilestones();
+            
+            if (game.time % 60 === 0) {
+                const currentGold = game.gold;
+                game.goldPerSecond = Math.max(0, (currentGold - (game.lastGoldCheck || 0)) / 1);
+                game.lastGoldCheck = currentGold;
+            }
+            
+            if (game.time % 900 === 0 && Math.random() < 0.4) {
+                createGoldDeposit();
+            }
+        }
+
+        function updateFoodAndWaterSources() {
+            if (!game.foodSources) game.foodSources = [];
+            if (!game.waterSources) game.waterSources = [];
+            
+            game.foodSources.forEach(function(source) {
+                if (source.amount < source.maxAmount) {
+                    source.regrowTimer++;
+                    if (source.regrowTimer > 45) {
+                        source.amount = Math.min(source.maxAmount, source.amount + 6);
+                        source.regrowTimer = 0;
+                    }
+                }
+            });
+            
+            game.waterSources.forEach(function(source) {
+                if (source.amount < source.maxAmount) {
+                    source.regrowTimer++;
+                    if (source.regrowTimer > 30) {
+                        source.amount = Math.min(source.maxAmount, source.amount + 8);
+                        source.regrowTimer = 0;
+                    }
+                }
+            });
+        }
+
+        function createGoldDeposit() {
+            if (!canvas || !game.goldDeposits) return null;
+            
+            const deposit = {
+                x: Math.random() * (canvas.width - 100) + 50,
+                y: Math.random() * (canvas.height - 100) + 50,
+                gold: 18 + Math.random() * 32,
+                discovered: false
+            };
+            
+            game.goldDeposits.push(deposit);
+            return deposit;
+        }
+
+        function updateGoldDeposits() {
+            if (game.goldDeposits && game.goldDeposits.length < 3 && Math.random() < 0.02) {
+                createGoldDeposit();
+                if (Math.random() < 0.3) {
+                    addLog('New gold deposit discovered!', false);
+                }
+            }
+            
+            game.goldDeposits = game.goldDeposits.filter(function(deposit) { return deposit.gold > 0.1; });
+        }
+
+        function checkMilestones() {
+            if (!game.milestones.hundredGold && game.gold >= 100) {
+                game.milestones.hundredGold = true;
+                addLog('First 100 gold collected!', true);
+            }
+            if (!game.milestones.thousandGold && game.gold >= 1000) {
+                game.milestones.thousandGold = true;
+                addLog('1000 gold milestone reached!', true);
+            }
+            
+            if (!game.milestones.firstBuilding && game.buildings.length >= 1) {
+                game.milestones.firstBuilding = true;
+                addLog('First building constructed!', true);
+            }
+            
+            if (!game.milestones.firstAmenity && game.buildings.filter(function(b) { return b.type === 'amenity'; }).length >= 1) {
+                game.milestones.firstAmenity = true;
+                addLog('First amenity building completed!', true);
+            }
+            
+            let allPartsBuilt = true;
+            for (let part in game.rocketParts) {
+                if (!game.rocketParts[part].built) {
+                    allPartsBuilt = false;
+                    break;
+                }
+            }
+            
+            if (allPartsBuilt && !game.milestones.rocketComplete) {
+                game.milestones.rocketComplete = true;
+                addLog('ROCKET COMPLETED! Victory achieved!', true, 'success');
+            }
+        }
+
+        // Motion detection functions
+        function handleMotionDamage(intensity) {
+            lastMotionIntensity = intensity;
+            lastMotionDetected = Date.now();
+            
+            if (intensity > 10.0) {
+                motionFlash = 20;
+                stabilityLevel = Math.max(0, stabilityLevel - (intensity * 3));
+                
+                addLog('Motion detected! Intensity: ' + intensity.toFixed(2), true, 'disaster');
+                
+                if (Math.random() < 0.1) {
+                    destroyRandomThing();
+                }
+            }
+        }
+
+        function handleAccelerometerMotion(event) {
+            const accel = event.accelerationIncludingGravity;
+            if (accel) {
+                const x = accel.x || 0;
+                const y = accel.y || 0;
+                const z = accel.z || 0;
+                
+                const intensity = Math.sqrt(x * x + y * y + z * z);
+                handleMotionDamage(intensity);
+            }
+        }
+
+        function destroyRandomThing() {
+            const targets = [];
+            
+            if (game.dwarfs.length > 1) targets.push('dwarf');
+            if (game.buildings.length > 0) targets.push('building');
+            if (game.goldDeposits.length > 0) targets.push('deposit');
+            if (game.foodSources.length > 1) targets.push('food');
+            if (game.waterSources.length > 1) targets.push('water');
+            
+            if (targets.length === 0) return false;
+            
+            const target = targets[Math.floor(Math.random() * targets.length)];
+            
+            switch (target) {
+                case 'dwarf':
+                    if (game.dwarfs.length > 1) {
+                        let mostVulnerable = game.dwarfs[0];
+                        let highestVulnerability = 0;
+                        
+                        game.dwarfs.forEach(function(dwarf) {
+                            const vulnerability = dwarf.personality.neuroticism + 
+                                                 (100 - Math.min(dwarf.hunger, dwarf.thirst));
+                            if (vulnerability > highestVulnerability) {
+                                highestVulnerability = vulnerability;
+                                mostVulnerable = dwarf;
+                            }
+                        });
+                        
+                        const index = game.dwarfs.indexOf(mostVulnerable);
+                        if (index > 0) {
+                            const removedDwarf = game.dwarfs.splice(index, 1)[0];
+                            addLog(removedDwarf.name + ' was overwhelmed by the chaos!', true, 'disaster');
+                            return true;
+                        }
+                    }
+                    break;
+                case 'building':
+                    if (game.buildings.length > 0) {
+                        game.buildings.pop();
+                        addLog('A building collapsed from instability!', false, 'disaster');
+                        return true;
+                    }
+                    break;
+                case 'deposit':
+                    if (game.goldDeposits.length > 0) {
+                        game.goldDeposits.pop();
+                        addLog('A gold deposit was scattered by motion!', false, 'disaster');
+                        return true;
+                    }
+                    break;
+                case 'food':
+                    if (game.foodSources.length > 1) {
+                        game.foodSources.pop();
+                        addLog('Berry bush destroyed by instability!', false, 'disaster');
+                        return true;
+                    }
+                    break;
+                case 'water':
+                    if (game.waterSources.length > 1) {
+                        game.waterSources.pop();
+                        addLog('Water spring dried up from the chaos!', false, 'disaster');
+                        return true;
+                    }
+                    break;
+            }
+            return false;
+        }
+
+        function requestPermissioniOS() {
+            return new Promise(function(resolve, reject) {
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission().then(function(permission) {
+                        resolve(permission === 'granted');
+                    }).catch(function(error) {
+                        console.error('Error requesting permission:', error);
+                        resolve(false);
+                    });
+                } else {
+                    resolve(true);
+                }
+            });
+        }
+
+        function enableAccelerometer() {
+            const statusDiv = document.getElementById('motionStatus');
+            statusDiv.textContent = 'Requesting permissions...';
+            
+            requestPermissioniOS().then(function(hasPermission) {
+                if (!hasPermission) {
+                    statusDiv.textContent = 'Permission denied. Enable in Safari settings.';
+                    statusDiv.className = 'motion-status inactive';
+                    return;
+                }
+                
+                if (!window.DeviceMotionEvent) {
+                    statusDiv.textContent = 'Motion sensors not supported on this device.';
+                    statusDiv.className = 'motion-status inactive';
+                    return;
+                }
+                
+                window.addEventListener('devicemotion', handleAccelerometerMotion);
+                
+                isTracking = true;
+                statusDiv.textContent = 'Motion detection active - Keep device steady!';
+                statusDiv.className = 'motion-status active';
+                
+                addLog('Motion detection enabled!', true);
+                addLog('Keep device steady to protect your colony!', true);
+            }).catch(function(error) {
+                console.error('Error enabling accelerometer:', error);
+                statusDiv.textContent = 'Failed to enable motion detection.';
+                statusDiv.className = 'motion-status inactive';
+            });
+        }
+
+        function updateStability() {
+            if (isTracking) {
+                stabilityLevel = Math.min(100, stabilityLevel + 0.05);
+            }
+            
+            if (motionFlash > 0) motionFlash--;
+            
+            const stabilityBar = document.getElementById('stabilityBar');
+            const stabilityText = document.getElementById('stabilityText');
+            
+            stabilityBar.style.width = stabilityLevel + '%';
+            
+            const motionText = 'Motion: ' + lastMotionIntensity.toFixed(1);
+            
+            if (stabilityLevel > 75) {
+                stabilityBar.className = 'stability-bar stability-high';
+                stabilityText.textContent = 'Stable (' + motionText + ')';
+            } else if (stabilityLevel > 50) {
+                stabilityBar.className = 'stability-bar stability-medium';
+                stabilityText.textContent = 'Unstable (' + motionText + ')';
+            } else if (stabilityLevel > 25) {
+                stabilityBar.className = 'stability-bar stability-low';
+                stabilityText.textContent = 'Dangerous (' + motionText + ')';
+            } else {
+                stabilityBar.className = 'stability-bar stability-critical';
+                stabilityText.textContent = 'Critical! (' + motionText + ')';
+            }
+        }
+
+        // UI Functions
+        function addLog(message, important, type) {
+            const logDiv = document.getElementById('log');
+            const cleanMessage = message.replace(/^[A-Za-z_0-9]+\s+(chose:|is|feels|couldn't|needs|had|learned|made|was)/, 'dwarf $1');
+            
+            if (!important && messageTracker.isDuplicate(cleanMessage)) {
+                if (messageTracker.updateCounter(cleanMessage)) {
+                    return;
+                }
+            }
+            
+            const entry = document.createElement('div');
+            
+            if (important) {
+                entry.className = 'log-entry important';
+            } else if (type === 'disaster') {
+                entry.className = 'log-entry disaster';
+            } else if (type === 'success') {
+                entry.className = 'log-entry success';
+            } else {
+                entry.className = 'log-entry';
+            }
+            
+            const timeStr = '[' + Math.floor(game.time / 60) + 's]';
+            entry.textContent = timeStr + ' ' + message;
+            
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            if (!important) {
+                messageTracker.addMessage(cleanMessage, entry, type);
+            }
+            
+            while (logDiv.children.length > 25) {
+                const removedElement = logDiv.children[1];
+                
+                for (let [msg, data] of messageTracker.recentMessages) {
+                    if (data.element === removedElement) {
+                        messageTracker.recentMessages.delete(msg);
+                        break;
+                    }
+                }
+                
+                logDiv.removeChild(removedElement);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('goldCount').textContent = Math.floor(game.gold);
+            
+            const adults = game.dwarfs.filter(function(d) { return d.isAdult; });
+            const children = game.dwarfs.filter(function(d) { return !d.isAdult; });
+            const males = adults.filter(function(d) { return d.gender === 'male'; });
+            const females = adults.filter(function(d) { return d.gender === 'female'; });
+            const pregnant = females.filter(function(f) { return f.isPregnant; });
+            
+            const orangeMales = males.filter(function(m) { return m.reproductionStrategy === 'orange'; }).length;
+            const blueMales = males.filter(function(m) { return m.reproductionStrategy === 'blue'; }).length;
+            const yellowMales = males.filter(function(m) { return m.reproductionStrategy === 'yellow'; }).length;
+            
+            let populationText = game.dwarfs.length.toString();
+            if (adults.length > 0) {
+                populationText += ' (' + adults.length + 'A';
+                if (children.length > 0) populationText += ', ' + children.length + 'C';
+                if (pregnant.length > 0) populationText += ', ' + pregnant.length + 'P';
+                populationText += ')';
+            }
+            
+            if (males.length > 0) {
+                populationText += ' [O' + orangeMales + ' B' + blueMales + ' Y' + yellowMales + ']';
+            }
+            
+            document.getElementById('dwarfsCount').textContent = populationText;
+            
+            if (game.dwarfs.length > 0) {
+                const totals = {
+                    hunger: 0, thirst: 0, rest: 0, joy: 0, coffee: 0, cleanliness: 0
+                };
+                
+                game.dwarfs.forEach(function(dwarf) {
+                    totals.hunger += dwarf.hunger;
+                    totals.thirst += dwarf.thirst;
+                    totals.rest += dwarf.rest;
+                    totals.joy += dwarf.joy;
+                    totals.coffee += dwarf.coffee;
+                    totals.cleanliness += dwarf.cleanliness;
+                });
+                
+                const count = game.dwarfs.length;
+                
+                document.getElementById('avgHunger').textContent = Math.floor(totals.hunger / count);
+                document.getElementById('avgThirst').textContent = Math.floor(totals.thirst / count);
+                document.getElementById('avgRest').textContent = Math.floor(totals.rest / count);
+                document.getElementById('avgJoy').textContent = Math.floor(totals.joy / count);
+                document.getElementById('avgCoffee').textContent = Math.floor(totals.coffee / count);
+                document.getElementById('avgClean').textContent = Math.floor(totals.cleanliness / count);
+            }
+            
+            const amenityBuildings = game.buildings.filter(function(b) { return b.type === 'amenity'; }).length;
+            const regularBuildings = game.buildings.filter(function(b) { return b.type !== 'amenity'; }).length;
+            
+            document.getElementById('machinesCount').textContent = amenityBuildings;
+            document.getElementById('buildingsCount').textContent = regularBuildings;
+            document.getElementById('goldPerSec').textContent = game.goldPerSecond.toFixed(1);
+            
+            updateRocketProgress();
+        }
+
+        function updateRocketProgress() {
+            const totalParts = Object.keys(game.rocketParts).length;
+            let completedParts = 0;
+            for (let part in game.rocketParts) {
+                if (game.rocketParts[part].built) completedParts++;
+            }
+            const overallProgress = (completedParts / totalParts) * 100;
+            
+            document.getElementById('overallProgress').style.width = overallProgress + '%';
+            
+            let progressText = 'Planning phase...';
+            if (overallProgress === 100) progressText = 'READY FOR LAUNCH!';
+            else if (overallProgress > 80) progressText = 'Final assembly...';
+            else if (overallProgress > 60) progressText = 'Major construction...';
+            else if (overallProgress > 40) progressText = 'Building components...';
+            else if (overallProgress > 20) progressText = 'Foundation work...';
+            else if (overallProgress > 0) progressText = 'Starting construction...';
+            
+            document.getElementById('progressText').textContent = progressText;
+            
+            const partNames = ['engine', 'fuel', 'hull', 'navigation', 'launchpad'];
+            const partIcons = ['🔥', '⛽', '🛡️', '📡', '🚿'];
+            
+            for (let i = 0; i < partNames.length; i++) {
+                const partName = partNames[i];
+                const partData = game.rocketParts[partName];
+                const element = document.getElementById(partName);
+                const icon = partIcons[i];
+                const capitalName = partName.charAt(0).toUpperCase() + partName.slice(1);
+                
+                if (partData.built) {
+                    element.className = 'rocket-part completed';
+                    element.textContent = icon + ' ' + capitalName + ': ✅ Complete';
+                } else if (partData.building) {
+                    element.className = 'rocket-part building';
+                    element.textContent = icon + ' ' + capitalName + ': 🔨 Building... ' + Math.floor(partData.progress * 100) + '%';
+                } else if (game.gold >= partData.cost) {
+                    element.className = 'rocket-part';
+                    element.textContent = icon + ' ' + capitalName + ': 💰 Ready (' + partData.cost + ' gold)';
+                } else {
+                    element.className = 'rocket-part';
+                    element.textContent = icon + ' ' + capitalName + ': ⏳ Need ' + partData.cost + ' gold';
+                }
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            try {
+                updateGame();
+                renderGame();
+                updateUI();
+                updateStability();
+                
+                game.time++;
+                requestAnimationFrame(gameLoop);
+                
+            } catch (error) {
+                console.error('Game loop error:', error);
+                addLog('Game loop error: ' + error.message, true, 'disaster');
+            }
+        }
+
+        // Initialize and start the game
+        function initializeGame() {
+            console.log('Starting medieval dwarf colony...');
+            
+            if (!initializeCanvas()) {
+                console.error('Failed to initialize canvas!');
+                return;
+            }
+            
+            resizeCanvas();
+            
+            // Load sprites first
+            loadSpriteSheet();
+            
+            setTimeout(function() {
+                initDwarfs();
+                initFoodAndWaterSources();
+                initializeGoldDeposits();
+                
+                addLog('Medieval Dwarf Colony Complete Edition started!', true);
+                addLog('Beautiful pixel art sprites + complex AI behaviors!', true);
+                addLog('Goal: Build a rocket using medieval technology!', true);
+                addLog('REPRODUCTION SYSTEM: Orange=Territorial, Blue=Guard, Yellow=Sneaky', true);
+                addLog('MATURITY: Children must mature before working (30 sec)', false);
+                addLog('PREGNANCY: 60-second pregnancy timer with birth mechanics', false);
+                addLog('PERSONALITY: Big Five traits affect all behavior and decisions', false);
+                addLog('PANIC STATES: Motion causes high-neuroticism dwarfs to panic', false);
+                addLog('SMART AI: Priority system - Survival > Rocket > Infrastructure > Amenities', false);
+                addLog('BUILDINGS: Amenities restore needs, buildings provide infrastructure', false);
+                addLog('MOTION DETECTION: Keep device steady or face consequences!', true);
+                
+                gameLoop();
+            }, 200);
+            
+            setTimeout(function() {
+                enableAccelerometer();
+            }, 1500);
+        }
+
+        // Event listeners
+        window.addEventListener('load', function() {
+            console.log('Page loaded, initializing medieval game...');
+            initializeGame();
+        });
+
+        window.addEventListener('orientationchange', function() {
+            setTimeout(resizeCanvas, 100);
+        });
+
+        window.addEventListener('resize', function() {
+            setTimeout(resizeCanvas, 100);
+        });
+
+        // Debug commands
+        window.debugCommands = {
+            spawnDwarf: function() {
+                if (!canvas || !ctx) return null;
+                const x = canvas.width / 2 + Math.random() * 100 - 50;
+                const y = canvas.height / 2 + Math.random() * 100 - 50;
+                const newDwarf = new Dwarf(x, y);
+                game.dwarfs.push(newDwarf);
+                addLog('DEBUG: Spawned ' + newDwarf.name + ' (' + newDwarf.gender + ', ' + (newDwarf.reproductionStrategy || 'female') + ')', true);
+                return newDwarf;
+            },
+            
+            showPersonalities: function() {
+                console.log('PERSONALITY ANALYSIS:');
+                game.dwarfs.forEach(function(dwarf, i) {
+                    const p = dwarf.personality;
+                    console.log(i + ': ' + dwarf.name + ' (' + dwarf.gender + (dwarf.reproductionStrategy ? ', ' + dwarf.reproductionStrategy : '') + ')');
+                    console.log('  State: ' + dwarf.personalityState + ' | Task: ' + dwarf.task);
+                    console.log('  O:' + Math.floor(p.openness) + ' C:' + Math.floor(p.conscientiousness) + ' E:' + Math.floor(p.extraversion) + ' A:' + Math.floor(p.agreeableness) + ' N:' + Math.floor(p.neuroticism));
+                    if (dwarf.isPregnant) console.log('  Pregnant: ' + Math.floor(dwarf.pregnancyTimer/36) + '% complete');
+                    if (!dwarf.isAdult) console.log('  Child: ' + Math.floor(dwarf.maturityTimer/18) + '% mature');
+                });
+                return game.dwarfs.map(function(d) {
+                    return { 
+                        name: d.name, 
+                        gender: d.gender, 
+                        strategy: d.reproductionStrategy, 
+                        state: d.personalityState,
+                        personality: d.personality
+                    };
+                });
+            },
+            
+            triggerMotion: function() {
+                handleMotionDamage(15);
+                addLog('DEBUG: Simulated strong motion event', true, 'disaster');
+                return 'Motion event triggered';
+            },
+            
+            forcePregnancy: function() {
+                const females = game.dwarfs.filter(function(d) { return d.gender === 'female' && d.isAdult && !d.isPregnant; });
+                if (females.length > 0) {
+                    const female = females[0];
+                    female.isPregnant = true;
+                    female.pregnancyTimer = 0;
+                    addLog('DEBUG: ' + female.name + ' is now pregnant', true, 'success');
+                    return female;
+                }
+                return 'No available females';
+            },
+            
+            showStats: function() {
+                const adults = game.dwarfs.filter(function(d) { return d.isAdult; });
+                const children = game.dwarfs.filter(function(d) { return !d.isAdult; });
+                const pregnant = game.dwarfs.filter(function(d) { return d.isPregnant; });
+                const males = adults.filter(function(d) { return d.gender === 'male'; });
+                
+                console.log('COLONY STATISTICS:');
+                console.log('Total Population: ' + game.dwarfs.length + ' (' + adults.length + ' adults, ' + children.length + ' children)');
+                console.log('Pregnant: ' + pregnant.length);
+                console.log('Males: ' + males.length + ' (O' + males.filter(function(m) { return m.reproductionStrategy === 'orange'; }).length + ' B' + males.filter(function(m) { return m.reproductionStrategy === 'blue'; }).length + ' Y' + males.filter(function(m) { return m.reproductionStrategy === 'yellow'; }).length + ')');
+                console.log('Buildings: ' + game.buildings.length + ' (' + game.buildings.filter(function(b) { return b.type === 'amenity'; }).length + ' amenities)');
+                console.log('Gold: ' + Math.floor(game.gold) + ' (' + game.goldPerSecond.toFixed(1) + '/sec)');
+                console.log('Rocket Parts: ' + Object.values(game.rocketParts).filter(function(p) { return p.built; }).length + '/5 complete');
+                
+                return {
+                    population: game.dwarfs.length,
+                    adults: adults.length,
+                    children: children.length,
+                    pregnant: pregnant.length,
+                    buildings: game.buildings.length,
+                    gold: game.gold,
+                    rocketParts: Object.values(game.rocketParts).filter(function(p) { return p.built; }).length
+                };
+            }
+        };
+
+        // Make some functions globally available for debugging
+        window.game = game;
+        window.Dwarf = Dwarf;
+        window.drawSprite = drawSprite;
+        
+        console.log('Medieval Dwarf Colony Complete Edition loaded!');
+        console.log('Debug commands available: debugCommands.spawnDwarf(), showPersonalities(), triggerMotion(), forcePregnancy(), showStats()');
+    </script>
+</body>
+</html>
