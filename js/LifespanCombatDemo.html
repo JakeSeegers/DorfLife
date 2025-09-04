@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DorfFriend - Lifespan & Combat System Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #ffd700;
+            font-size: 2.5em;
+            margin: 0;
+        }
+        
+        .game-area {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+        
+        .main-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .sidebar {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .colony-viewport {
+            width: 100%;
+            height: 500px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+        
+        .dwarf {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        .dwarf.male { background: #4a90e2; }
+        .dwarf.female { background: #e74c3c; }
+        .dwarf.pregnant { background: #f39c12; border: 2px solid #e67e22; }
+        .dwarf.child { 
+            background: #95a5a6; 
+            width: 12px; 
+            height: 12px; 
+        }
+        .dwarf.elderly { 
+            opacity: 0.8; 
+            border: 1px solid #888; 
+        }
+        .dwarf.injured { 
+            animation: flash 2s infinite; 
+        }
+        .dwarf.in-combat { 
+            animation: shake 0.5s infinite;
+            border: 2px solid #ff0000; 
+        }
+        
+        .dwarf::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 2px;
+            opacity: 0;
+        }
+        
+        .dwarf.show-health::before {
+            opacity: 1;
+        }
+        
+        .dwarf::after {
+            content: '';
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            top: -6px;
+            right: -6px;
+        }
+        
+        .dwarf.orange::after { background: #ff6600; }
+        .dwarf.blue::after { background: #0066ff; }
+        .dwarf.yellow::after { background: #ffff00; }
+        
+        .skull {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #f8f8ff;
+            border-radius: 50%;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .skull::before {
+            content: '💀';
+            font-size: 10px;
+            position: absolute;
+            top: -2px;
+            left: -1px;
+        }
+        
+        .combat-effect {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(circle, #ffff00, #ff4500);
+            border-radius: 50%;
+            z-index: 15;
+            pointer-events: none;
+            animation: combat-spark 0.5s ease-out;
+        }
+        
+        .damage-number {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: #ff0000;
+            text-shadow: 1px 1px 0 #000;
+            z-index: 20;
+            pointer-events: none;
+            animation: damage-float 2s ease-out forwards;
+        }
+        
+        .damage-number.critical {
+            font-size: 16px;
+            color: #ff0000;
+            animation: critical-float 2s ease-out forwards;
+        }
+        
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-1px, 0); }
+            75% { transform: translate(1px, 0); }
+        }
+        
+        @keyframes combat-spark {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        
+        @keyframes damage-float {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-20px); opacity: 0; }
+        }
+        
+        @keyframes critical-float {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { transform: translateY(-10px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-30px) scale(1); opacity: 0; }
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        
+        .danger-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        
+        .success-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        
+        .stat-panel {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #ffd700;
+        }
+        
+        .stat-panel h4 {
+            margin: 0 0 10px 0;
+            color: #ffd700;
+            font-size: 16px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+        }
+        
+        .log-panel {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-entry.combat { color: #e74c3c; }
+        .log-entry.death { color: #f39c12; }
+        .log-entry.birth { color: #27ae60; }
+        .log-entry.age { color: #3498db; }
+        
+        .dwarf-details {
+            background: rgba(0, 0, 0, 0.8);
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #ffd700;
+            z-index: 1000;
+            min-width: 300px;
+            display: none;
+        }
+        
+        .dwarf-details h3 {
+            color: #ffd700;
+            margin-top: 0;
+        }
+        
+        .close-btn {
+            float: right;
+            background: #e74c3c;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .health-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        
+        .health-fill {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+        
+        .health-fill.healthy { background: #27ae60; }
+        .health-fill.injured { background: #f1c40f; }
+        .health-fill.critical { background: #e74c3c; }
+        
+        @media (max-width: 768px) {
+            .game-area {
+                grid-template-columns: 1fr;
+            }
+            
+            .colony-viewport {
+                height: 400px;
+            }
+            
+            .controls {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚔️ DorfFriend Lifespan & Combat Demo</h1>
+            <p>Watch dworfs age, fight, and die in territorial battles! Click on dworfs for details.</p>
+        </div>
+        
+        <div class="game-area">
+            <div class="main-panel">
+                <h3>🏕️ Colony Battlefield</h3>
+                <div class="colony-viewport" id="colonyViewport">
+                    <!-- Dwarfs and effects will appear here -->
+                </div>
+                
+                <div class="controls">
+                    <button onclick="spawnDwarf()" class="success-btn">👶 Spawn Dwarf</button>
+                    <button onclick="spawnElderly()" class="success-btn">👴 Spawn Elder</button>
+                    <button onclick="triggerCombat()">⚔️ Force Combat</button>
+                    <button onclick="healAll()" class="success-btn">💚 Heal All</button>
+                    <button onclick="advanceTime(1800)">⏩ Age +30min</button>
+                    <button onclick="togglePause()" id="pauseBtn">⏸️ Pause</button>
+                    <button onclick="clearAll()" class="danger-btn">🧹 Clear All</button>
+                    <button onclick="massSpawn()">🌊 Mass Spawn</button>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="stats-grid">
+                    <div class="stat-panel">
+                        <h4>📊 Population</h4>
+                        <div class="stat-row">
+                            <span>Total Living:</span>
+                            <span class="stat-value" id="livingCount">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Adults:</span>
+                            <span class="stat-value" id="adultCount">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Children:</span>
+                            <span class="stat-value" id="childCount">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Elderly:</span>
+                            <span class="stat-value" id="elderlyCount">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Average Age:</span>
+                            <span class="stat-value" id="avgAge">0</span>min
+                        </div>
+                    </div>
+                    
+                    <div class="stat-panel">
+                        <h4>💀 Death Statistics</h4>
+                        <div class="stat-row">
+                            <span>Total Deaths:</span>
+                            <span class="stat-value" id="totalDeaths">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Deaths by Age:</span>
+                            <span class="stat-value" id="deathsByAge">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Deaths by Combat:</span>
+                            <span class="stat-value" id="deathsByCombat">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Active Skulls:</span>
+                            <span class="stat-value" id="skullCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-panel">
+                        <h4>⚔️ Combat Statistics</h4>
+                        <div class="stat-row">
+                            <span>Total Combats:</span>
+                            <span class="stat-value" id="totalCombats">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Active Fights:</span>
+                            <span class="stat-value" id="activeFights">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Total Damage:</span>
+                            <span class="stat-value" id="totalDamage">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Avg Damage/Fight:</span>
+                            <span class="stat-value" id="avgDamage">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-panel">
+                        <h4>🏥 Health Overview</h4>
+                        <div class="stat-row">
+                            <span>Healthy (>80%):</span>
+                            <span class="stat-value" id="healthyCount">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Injured (20-80%):</span>
+                            <span class="stat-value" id="injuredCount">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Critical (<20%):</span>
+                            <span class="stat-value" id="criticalCount">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="log-panel">
+                    <div><strong>📜 Activity Log:</strong></div>
+                    <div id="activityLog"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dwarf Details Modal -->
+        <div class="dwarf-details" id="dwarfDetails">
+            <button class="close-btn" onclick="closeDwarfDetails()">×</button>
+            <h3 id="dwarfName">Dwarf Details</h3>
+            <div id="dwarfInfo"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { LifespanCombatSystem, LifespanUtils } from './LifespanCombatSystem.js';
+        
+        // Simple game state for demo
+        class DorfFriendLifespanDemo {
+            constructor() {
+                this.dwarfs = [];
+                this.gameTime = 0;
+                this.isPaused = false;
+                
+                // Initialize lifespan combat system
+                this.lifespanSystem = new LifespanCombatSystem({
+                    maxLifespan: 36000, // 30 minutes
+                    minLifespan: 18000, // 15 minutes
+                    agingStartAge: 25200, // 70% of max lifespan
+                    territorialCombatChance: 0.08,
+                    randomCombatChance: 0.002,
+                    baseDamage: 18,
+                    damageVariance: 7
+                });
+                
+                // Simple world interface
+                this.world = {
+                    getAllDwarfs: () => this.dwarfs,
+                    getNearbyDwarfs: (center, radius, filter = null) => {
+                        return this.dwarfs.filter(dwarf => {
+                            if (dwarf === center) return false;
+                            const distance = this.calculateDistance(center, dwarf);
+                            const inRange = distance < radius;
+                            return filter ? (inRange && filter(dwarf)) : inRange;
+                        });
+                    },
+                    getNearbyMales: (center, radius, exclude = null) => {
+                        return this.world.getNearbyDwarfs(center, radius, dwarf => 
+                            dwarf.gender === 'male' && dwarf.isAdult && dwarf !== exclude
+                        );
+                    },
+                    calculateDistance: (obj1, obj2) => {
+                        const dx = obj1.x - obj2.x;
+                        const dy = obj1.y - obj2.y;
+                        return Math.sqrt(dx * dx + dy * dy);
+                    },
+                    addLog: (message, important, type) => this.addLogEntry(message, type)
+                };
+                
+                this.calculateDistance = this.world.calculateDistance;
+                
+                // Start game loop
+                this.startGameLoop();
+                
+                // Initial population
+                this.spawnInitialDwarfs();
+                
+                // Update UI
+                this.setupUI();
+            }
+            
+            spawnInitialDwarfs() {
+                for (let i = 0; i < 8; i++) {
+                    this.createDwarf(true);
+                }
+                for (let i = 0; i < 3; i++) {
+                    this.createDwarf(false);
+                }
+            }
+            
+            createDwarf(isAdult = true, isElderly = false) {
+                const names = ['Thorin', 'Balin', 'Dwalin', 'Gloin', 'Oin', 'Bifur', 'Bofur', 'Bombur', 
+                             'Dori', 'Nori', 'Ori', 'Fili', 'Kili', 'Gimli', 'Groin', 'Nain'];
+                
+                const dwarf = {
+                    name: names[Math.floor(Math.random() * names.length)] + '_' + Math.floor(Math.random() * 1000),
+                    x: 50 + Math.random() * 700,
+                    y: 50 + Math.random() * 400,
+                    gender: Math.random() < 0.5 ? 'male' : 'female',
+                    isAdult: isAdult,
+                    class: ['fighter', 'mage', 'archer'][Math.floor(Math.random() * 3)],
+                    
+                    // Personality for combat behavior
+                    personality: {
+                        agreeableness: Math.random() * 100,
+                        neuroticism: Math.random() * 100,
+                        openness: Math.random() * 100,
+                        extraversion: Math.random() * 100,
+                        conscientiousness: Math.random() * 100
+                    }
+                };
+                
+                // Assign reproduction strategy to males
+                if (dwarf.gender === 'male' && isAdult) {
+                    dwarf.reproductionStrategy = ['orange', 'blue', 'yellow'][Math.floor(Math.random() * 3)];
+                }
+                
+                // Initialize lifespan and combat
+                this.lifespanSystem.initializeDwarf(dwarf);
+                
+                // Make elderly if requested
+                if (isElderly) {
+                    dwarf.age = dwarf.maxLifespan * 0.8; // 80% of lifespan
+                }
+                
+                // Create visual element
+                this.createDwarfElement(dwarf);
+                
+                this.dwarfs.push(dwarf);
+                this.addLogEntry(`${dwarf.name} joined the colony (${dwarf.gender}, ${dwarf.class})`, 'birth');
+                
+                return dwarf;
+            }
+            
+            createDwarfElement(dwarf) {
+                const element = document.createElement('div');
+                element.className = `dwarf ${dwarf.gender}`;
+                element.id = `dwarf_${dwarf.name}`;
+                
+                if (!dwarf.isAdult) element.classList.add('child');
+                if (dwarf.reproductionStrategy) element.classList.add(dwarf.reproductionStrategy);
+                
+                element.style.left = dwarf.x + 'px';
+                element.style.top = dwarf.y + 'px';
+                
+                element.onclick = () => this.showDwarfDetails(dwarf);
+                
+                document.getElementById('colonyViewport').appendChild(element);
+                dwarf.element = element;
+            }
+            
+            updateDwarfElement(dwarf) {
+                if (!dwarf.element) return;
+                
+                // Update position
+                dwarf.element.style.left = dwarf.x + 'px';
+                dwarf.element.style.top = dwarf.y + 'px';
+                
+                // Update classes
+                dwarf.element.className = `dwarf ${dwarf.gender}`;
+                if (!dwarf.isAdult) dwarf.element.classList.add('child');
+                if (dwarf.reproductionStrategy) dwarf.element.classList.add(dwarf.reproductionStrategy);
+                if (dwarf.age && dwarf.age / dwarf.maxLifespan > 0.7) dwarf.element.classList.add('elderly');
+                if (dwarf.health && dwarf.health < dwarf.maxHealth * 0.8) dwarf.element.classList.add('injured');
+                if (dwarf.isInCombat) dwarf.element.classList.add('in-combat');
+                if (dwarf.healthBarVisible) dwarf.element.classList.add('show-health');
+                
+                // Update health bar
+                if (dwarf.healthBarVisible && dwarf.health < dwarf.maxHealth) {
+                    const healthPercent = dwarf.health / dwarf.maxHealth;
+                    dwarf.element.style.setProperty('--health-percent', healthPercent);
+                    
+                    // Create health bar if doesn't exist
+                    if (!dwarf.element.healthBar) {
+                        dwarf.element.healthBar = document.createElement('div');
+                        dwarf.element.healthBar.style.cssText = `
+                            position: absolute;
+                            top: -8px;
+                            left: 0;
+                            width: 16px;
+                            height: 3px;
+                            background: rgba(0,0,0,0.5);
+                            border-radius: 2px;
+                        `;
+                        
+                        const fill = document.createElement('div');
+                        fill.style.cssText = `
+                            height: 100%;
+                            width: ${healthPercent * 100}%;
+                            background: ${healthPercent > 0.6 ? '#27ae60' : healthPercent > 0.3 ? '#f1c40f' : '#e74c3c'};
+                            border-radius: 2px;
+                            transition: width 0.3s ease, background-color 0.3s ease;
+                        `;
+                        
+                        dwarf.element.healthBar.appendChild(fill);
+                        dwarf.element.appendChild(dwarf.element.healthBar);
+                        dwarf.element.healthFill = fill;
+                    } else {
+                        // Update existing health bar
+                        dwarf.element.healthFill.style.width = (healthPercent * 100) + '%';
+                        dwarf.element.healthFill.style.background = 
+                            healthPercent > 0.6 ? '#27ae60' : healthPercent > 0.3 ? '#f1c40f' : '#e74c3c';
+                    }
+                }
+            }
+            
+            startGameLoop() {
+                setInterval(() => {
+                    if (!this.isPaused) {
+                        this.update();
+                    }
+                    this.updateUI();
+                }, 50); // 20 FPS
+            }
+            
+            update() {
+                this.gameTime++;
+                
+                // Update lifespan system
+                this.lifespanSystem.update(this.dwarfs, this.world);
+                
+                // Remove dead dwarfs
+                this.dwarfs = this.dwarfs.filter(dwarf => {
+                    if (dwarf.isDead) {
+                        if (dwarf.element) {
+                            dwarf.element.remove();
+                        }
+                        return false;
+                    }
+                    return true;
+                });
+                
+                // Update dwarf visuals and simple movement
+                this.dwarfs.forEach(dwarf => {
+                    // Simple random movement
+                    if (Math.random() < 0.01) {
+                        dwarf.x = Math.max(10, Math.min(790, dwarf.x + (Math.random() - 0.5) * 20));
+                        dwarf.y = Math.max(10, Math.min(480, dwarf.y + (Math.random() - 0.5) * 20));
+                    }
+                    
+                    this.updateDwarfElement(dwarf);
+                });
+                
+                // Update skulls and effects visuals
+                this.updateSkullElements();
+            }
+            
+            updateSkullElements() {
+                // Remove old skull elements
+                document.querySelectorAll('.skull').forEach(el => el.remove());
+                document.querySelectorAll('.combat-effect').forEach(el => el.remove());
+                
+                // Create skull elements
+                this.lifespanSystem.skulls.forEach((skull, index) => {
+                    const element = document.createElement('div');
+                    element.className = 'skull';
+                    element.style.left = skull.x + 'px';
+                    element.style.top = skull.y + 'px';
+                    element.style.opacity = skull.opacity;
+                    element.title = skull.name;
+                    
+                    document.getElementById('colonyViewport').appendChild(element);
+                });
+                
+                // Create combat effect elements
+                this.lifespanSystem.combatEffects.forEach(effect => {
+                    const element = document.createElement('div');
+                    element.className = 'combat-effect';
+                    element.style.left = effect.x + 'px';
+                    element.style.top = effect.y + 'px';
+                    
+                    document.getElementById('colonyViewport').appendChild(element);
+                    
+                    // Remove after animation
+                    setTimeout(() => element.remove(), 500);
+                });
+            }
+            
+            updateUI() {
+                const living = this.dwarfs.filter(d => !d.isDead);
+                const adults = living.filter(d => d.isAdult);
+                const children = living.filter(d => !d.isAdult);
+                const elderly = living.filter(d => d.age && d.age / d.maxLifespan > 0.7);
+                
+                const stats = this.lifespanSystem.getStatistics();
+                
+                // Population stats
+                document.getElementById('livingCount').textContent = living.length;
+                document.getElementById('adultCount').textContent = adults.length;
+                document.getElementById('childCount').textContent = children.length;
+                document.getElementById('elderlyCount').textContent = elderly.length;
+                
+                // Average age
+                if (living.length > 0) {
+                    const totalAge = living.reduce((sum, dwarf) => sum + (dwarf.age || 0), 0);
+                    const avgAge = Math.floor((totalAge / living.length) / 60); // Convert to minutes
+                    document.getElementById('avgAge').textContent = avgAge;
+                } else {
+                    document.getElementById('avgAge').textContent = '0';
+                }
+                
+                // Death stats
+                document.getElementById('totalDeaths').textContent = stats.totalDeaths;
+                document.getElementById('deathsByAge').textContent = stats.deathsByAge;
+                document.getElementById('deathsByCombat').textContent = stats.deathsByCombat;
+                document.getElementById('skullCount').textContent = stats.activeSkulls;
+                
+                // Combat stats
+                document.getElementById('totalCombats').textContent = stats.totalCombats;
+                document.getElementById('activeFights').textContent = living.filter(d => d.isInCombat).length;
+                document.getElementById('totalDamage').textContent = stats.totalDamageDealt;
+                document.getElementById('avgDamage').textContent = stats.averageDamagePerCombat;
+                
+                // Health stats
+                const healthy = living.filter(d => d.health / d.maxHealth > 0.8);
+                const injured = living.filter(d => {
+                    const ratio = d.health / d.maxHealth;
+                    return ratio <= 0.8 && ratio >= 0.2;
+                });
+                const critical = living.filter(d => d.health / d.maxHealth < 0.2);
+                
+                document.getElementById('healthyCount').textContent = healthy.length;
+                document.getElementById('injuredCount').textContent = injured.length;
+                document.getElementById('criticalCount').textContent = critical.length;
+            }
+            
+            addLogEntry(message, type = 'info') {
+                const log = document.getElementById('activityLog');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+                
+                log.appendChild(entry);
+                log.scrollTop = log.scrollHeight;
+                
+                // Keep only last 100 entries
+                while (log.children.length > 100) {
+                    log.removeChild(log.firstChild);
+                }
+            }
+            
+            showDwarfDetails(dwarf) {
+                const modal = document.getElementById('dwarfDetails');
+                const nameEl = document.getElementById('dwarfName');
+                const infoEl = document.getElementById('dwarfInfo');
+                
+                nameEl.textContent = `${dwarf.name} (${dwarf.gender}, ${dwarf.class})`;
+                
+                const ageMinutes = Math.floor((dwarf.age || 0) / 60);
+                const maxAgeMinutes = Math.floor((dwarf.maxLifespan || 0) / 60);
+                const healthPercent = Math.floor((dwarf.health / dwarf.maxHealth) * 100);
+                const combatPower = LifespanUtils.calculateCombatPower(dwarf);
+                
+                infoEl.innerHTML = `
+                    <div class="stat-row">
+                        <span>Age:</span>
+                        <span class="stat-value">${ageMinutes}/${maxAgeMinutes} minutes</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Health:</span>
+                        <span class="stat-value">${Math.floor(dwarf.health)}/${Math.floor(dwarf.maxHealth)} (${healthPercent}%)</span>
+                    </div>
+                    <div class="health-bar">
+                        <div class="health-fill ${healthPercent > 60 ? 'healthy' : healthPercent > 30 ? 'injured' : 'critical'}" 
+                             style="width: ${healthPercent}%"></div>
+                    </div>
+                    <div class="stat-row">
+                        <span>Status:</span>
+                        <span class="stat-value">${LifespanUtils.getHealthStatus(dwarf.health, dwarf.maxHealth)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Combat Power:</span>
+                        <span class="stat-value">${combatPower}</span>
+                    </div>
+                    ${dwarf.reproductionStrategy ? `
+                        <div class="stat-row">
+                            <span>Strategy:</span>
+                            <span class="stat-value">${dwarf.reproductionStrategy}</span>
+                        </div>
+                    ` : ''}
+                    <div class="stat-row">
+                        <span>In Combat:</span>
+                        <span class="stat-value">${dwarf.isInCombat ? 'Yes' : 'No'}</span>
+                    </div>
+                    ${dwarf.combatTarget ? `
+                        <div class="stat-row">
+                            <span>Fighting:</span>
+                            <span class="stat-value">${dwarf.combatTarget.name}</span>
+                        </div>
+                    ` : ''}
+                    <div style="margin-top: 15px;">
+                        <button onclick="game.healDwarf('${dwarf.name}')" class="success-btn">Heal</button>
+                        <button onclick="game.forceDwarfCombat('${dwarf.name}')" class="danger-btn">Force Combat</button>
+                    </div>
+                `;
+                
+                modal.style.display = 'block';
+            }
+            
+            setupUI() {
+                // Make methods globally available
+                window.game = this;
+                
+                window.spawnDwarf = () => {
+                    this.createDwarf(Math.random() < 0.8);
+                    this.addLogEntry('Spawned new dwarf', 'birth');
+                };
+                
+                window.spawnElderly = () => {
+                    this.createDwarf(true, true);
+                    this.addLogEntry('Spawned elderly dwarf', 'age');
+                };
+                
+                window.triggerCombat = () => {
+                    const living = this.dwarfs.filter(d => !d.isDead && d.health > 0);
+                    if (living.length >= 2) {
+                        const attacker = living[Math.floor(Math.random() * living.length)];
+                        const target = living.filter(d => d !== attacker)[Math.floor(Math.random() * (living.length - 1))];
+                        this.lifespanSystem.performAttack(attacker, target, this.world);
+                        this.addLogEntry(`Forced combat: ${attacker.name} vs ${target.name}`, 'combat');
+                    }
+                };
+                
+                window.healAll = () => {
+                    this.dwarfs.forEach(dwarf => {
+                        if (!dwarf.isDead) {
+                            dwarf.health = dwarf.maxHealth;
+                        }
+                    });
+                    this.addLogEntry('Healed all dwarfs', 'birth');
+                };
+                
+                window.advanceTime = (ticks) => {
+                    this.dwarfs.forEach(dwarf => {
+                        if (!dwarf.isDead) {
+                            dwarf.age = (dwarf.age || 0) + ticks;
+                        }
+                    });
+                    this.addLogEntry(`Advanced time by ${Math.floor(ticks/60)} minutes`, 'age');
+                };
+                
+                window.togglePause = () => {
+                    this.isPaused = !this.isPaused;
+                    const btn = document.getElementById('pauseBtn');
+                    btn.textContent = this.isPaused ? '▶️ Resume' : '⏸️ Pause';
+                };
+                
+                window.clearAll = () => {
+                    if (confirm('Clear all dwarfs and skulls?')) {
+                        this.dwarfs.forEach(dwarf => {
+                            if (dwarf.element) dwarf.element.remove();
+                        });
+                        this.dwarfs = [];
+                        this.lifespanSystem.skulls = [];
+                        document.querySelectorAll('.skull').forEach(el => el.remove());
+                        this.addLogEntry('Cleared all dwarfs', 'death');
+                    }
+                };
+                
+                window.massSpawn = () => {
+                    for (let i = 0; i < 10; i++) {
+                        this.createDwarf(Math.random() < 0.7);
+                    }
+                    this.addLogEntry('Mass spawned 10 dwarfs', 'birth');
+                };
+                
+                window.closeDwarfDetails = () => {
+                    document.getElementById('dwarfDetails').style.display = 'none';
+                };
+                
+                // Add methods accessible from dwarf details
+                this.healDwarf = (dwarfName) => {
+                    const dwarf = this.dwarfs.find(d => d.name === dwarfName);
+                    if (dwarf) {
+                        dwarf.health = dwarf.maxHealth;
+                        this.addLogEntry(`Healed ${dwarf.name}`, 'birth');
+                        window.closeDwarfDetails();
+                    }
+                };
+                
+                this.forceDwarfCombat = (dwarfName) => {
+                    const attacker = this.dwarfs.find(d => d.name === dwarfName);
+                    const targets = this.dwarfs.filter(d => d !== attacker && !d.isDead);
+                    if (attacker && targets.length > 0) {
+                        const target = targets[Math.floor(Math.random() * targets.length)];
+                        this.lifespanSystem.performAttack(attacker, target, this.world);
+                        this.addLogEntry(`${attacker.name} attacks ${target.name}!`, 'combat');
+                        window.closeDwarfDetails();
+                    }
+                };
+            }
+        }
+        
+        // Initialize demo
+        const demo = new DorfFriendLifespanDemo();
+        
+        console.log('DorfFriend Lifespan & Combat Demo loaded!');
+        console.log('Debug: window.game available for inspection');
+    </script>
+</body>
+</html>
